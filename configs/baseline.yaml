@@ -1,9 +1,8 @@
 data_path: data/raw/cbr/baseline-2019-2026/rates.csv
-target_horizon: 3
+target_horizons: [1, 3, 5, 10, 20]
 momentum_days: 3
 level_window: 90
 level_quantile: 0.10
 reversal_window: 20
 holiday_lookahead_days: 7
 reports_dir: reports
-

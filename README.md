@@ -5,8 +5,8 @@
 
 Проект определяет подходящий момент для коммуникации о переводе и позволяет проверить,
 насколько объяснимые индикаторы — momentum, level, reversal и seasonality — информативнее
-случайного дня. Первый воспроизводимый эксперимент в ноутбуке оценивает поиск локального
-минимума курса на горизонте `h=3` свежих публикаций ЦБ.
+случайного дня. Пять воспроизводимых ноутбуков оценивают поиск локального минимума курса на
+горизонтах `h=1/3/5/10/20` свежих публикаций ЦБ.
 
 ## Быстрый старт
 
@@ -16,7 +16,7 @@
 uv sync --extra dev
 uv run fx-signals data fetch --config configs/data.yaml
 uv run fx-signals baseline --config configs/baseline.yaml
-uv run jupyter nbconvert --execute --inplace notebooks/01_baseline_indicators.ipynb
+uv run jupyter nbconvert --execute --inplace notebooks/*.ipynb
 ```
 
 Данные не хранятся в Git. Команда `data fetch` загружает фиксированный период из
@@ -30,8 +30,9 @@ manifest с URL, числом строк и SHA256. Период экспери�
 тем выгоднее момент для отправителя.
 
 ```text
-target_local_min_h3(t) = 1,
-если q(t) — минимум среди q(t-3), ..., q(t+3)
+target_local_min_h(t) = 1,
+если q(t) — минимум среди q(t-h), ..., q(t+h),
+где h ∈ {1, 3, 5, 10, 20}
 ```
 
 Горизонт считается в свежих публикациях. XML-история ЦБ уже содержит только даты установки
@@ -41,9 +42,10 @@ target_local_min_h3(t) = 1,
 
 После запуска появляются:
 
-- `reports/tables/baseline_h3.csv` — hit rate и lift для 4 индикаторов × 5 коридоров;
-- `reports/figures/baseline_lift.png` — heatmap lift;
-- выполненный `notebooks/01_baseline_indicators.ipynb` с проверками и графиками.
+- `reports/tables/baseline_all_horizons.csv` — общая таблица всех горизонтов;
+- `reports/tables/baseline_h*.csv` — отдельная таблица для каждого горизонта;
+- `reports/figures/baseline_lift_h*.png` — отдельные heatmap;
+- пять выполненных ноутбуков в `notebooks/`, по одному на горизонт.
 
 Сырые данные, промежуточные таблицы и модели игнорируются Git. Агрегированные результаты
 экспериментов коммитить можно: они позволяют посмотреть вывод без доступа к API.

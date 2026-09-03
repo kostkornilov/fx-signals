@@ -23,6 +23,7 @@ def evaluate_lift(
             signal_hit_rate = float(target[signal].mean()) if signal_count else np.nan
             rows.append(
                 {
+                    "horizon": horizon,
                     "corridor": f"RUB->{currency}",
                     "indicator": indicator,
                     "eligible_days": len(group),
@@ -36,4 +37,3 @@ def evaluate_lift(
                 }
             )
     return pd.DataFrame(rows)
-

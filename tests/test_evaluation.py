@@ -17,9 +17,9 @@ def test_lift_matches_manual_calculation() -> None:
         }
     )
     result = evaluate_lift(frame).set_index("indicator")
+    assert (result["horizon"] == 3).all()
     assert result.loc["momentum", "signal_hit_rate"] == 1.0
     assert result.loc["momentum", "random_hit_rate"] == 0.5
     assert result.loc["momentum", "lift"] == 2.0
     assert result.loc["reversal", "lift"] == 0.0
     assert result.loc["level", "lift"] == pytest.approx(2.0)
-
