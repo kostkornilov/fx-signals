@@ -16,6 +16,7 @@
 uv sync --extra dev
 uv run fx-signals data fetch --config configs/data.yaml
 uv run fx-signals baseline --config configs/baseline.yaml
+uv run fx-signals research --config configs/research.yaml
 uv run jupyter nbconvert --execute --inplace notebooks/*.ipynb
 ```
 
@@ -56,6 +57,21 @@ target_local_min_h(t) = 1,
 uv run pytest
 uv run ruff check .
 ```
+
+## Исследование дополнительных рядов
+
+Команда `research` запускает одинаковый walk-forward/OOT эксперимент для текущего набора
+признаков, усиленного CBR-only baseline и моделей с USD/EUR/CNY. Она формирует:
+
+- `reports/research/data_audit.csv` — покрытие и лаг публикации;
+- `reports/research/market_component_eda.csv` — корреляция, beta и остаточная волатильность;
+- `reports/research/ablation_metrics.csv` — метрики всех моделей и горизонтов;
+- `reports/research/paired_comparisons.csv` — paired moving-block bootstrap относительно baseline;
+- `reports/research/README.md` — краткий автоматически собранный вывод.
+
+Национальные банки и MOEX добавляются одним CSV через `external_path`; контракт и правила
+point-in-time объединения описаны в [`docs/external-data.md`](docs/external-data.md). Внешние
+признаки образуют группу `F`, а эксперимент с ней пропускается, пока snapshot отсутствует.
 
 Тесты используют синтетические данные и не требуют сети.
 

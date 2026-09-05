@@ -1,0 +1,42 @@
+{
+  "legacy_commit": "4c12350522c4efb11a78706adccc8744cb6b1cfe",
+  "data": {
+    "rates.csv": "577c3bd024e332231c44f31dd2ead393cca475fb7d9d0e85b67af25202f11502",
+    "context_rates.csv": "2c6f7c2951366e98b473fd7513ab00ac7483eb05d76cd92d2190405e8553a506",
+    "manifest.json": "72c7c7d0171db469a548a1d9037ff6e5c57d48c6b7cdd0efc795bf4a1ce498aa"
+  },
+  "runtime": {
+    "numpy": "2.5.2",
+    "pandas": "2.3.3",
+    "scikit-learn": "1.9.0",
+    "catboost": "1.2.10",
+    "holidays": "0.103",
+    "python": "3.14.7 (main, Aug  7 2026, 02:15:30) [Clang 22.1.3 ]"
+  },
+  "source_head": "4e937be9e31fb5e7030fe1062e2018104469bf47",
+  "available_prediction_artifact": {
+    "sha256": "d32a34943e17c2bc6ec68916471d5e36ff160c60a58bdfdf710cb4469b5a90fd",
+    "journal": {
+      "exp_id": "logreg_ab",
+      "git_hash": "e6f878e",
+      "model": "logreg",
+      "target": "stay_not_worse",
+      "horizon": 5,
+      "feature_groups": "A,B",
+      "oot_lift": NaN,
+      "oot_bps": NaN,
+      "oot_signals_per_week": 0.0
+    },
+    "decision": "Not reused: journal identifies a different parent commit and does not prove matrix-run provenance."
+  },
+  "predictions_sha256": "2ebbfb088f1349c47ceec988301d1cd5f1e295191ed6d5cc2bbb57c87b44dd15",
+  "extra_jobs": {
+    "configurations": [
+      "catboost A",
+      "catboost A,B,C"
+    ],
+    "predictions_sha256": "a1f592844abfa11a5b394488ce4f4f083fcf02e8e8f454a3308a17616342189a",
+    "reason": "Legacy matrix fitted CatBoost only on A,B and A,B,C,D, leaving two rungs unpaired.",
+    "scope": "Outside the reconstruction check: these rows have no counterpart in the old table."
+  }
+}

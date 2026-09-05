@@ -9,10 +9,22 @@ import seaborn as sns
 
 ROOT = Path(__file__).resolve().parents[1]
 INPUT = ROOT / "reports" / "tables" / "ml_summary.csv"
+DIAGNOSTICS = ROOT / "reports" / "tables" / "ml_diagnostics.csv"
 OUTPUT = ROOT / "reports" / "figures"
+LADDER = ["A", "A,B", "A,B,C", "A,B,C,D"]
+# Пять требуемых метрик; cluster_rate вынесен в диагностику и здесь не показывается.
+PROFILE_METRICS = [
+    ("lift", "Lift относительно обычного дня", "во сколько раз"),
+    ("moment_advantage_bps", "Выгода момента ±h", "б.п."),
+    ("customer_regret_cvar_95_bps", "Хвостовой regret CVaR 95% (меньше — лучше)", "б.п."),
+    ("signals_per_week", "Сигналов в неделю", "шт./нед."),
+    ("lift_at_risk", "Lift-at-Risk (fixed)", "во сколько раз"),
+]
 SPLIT_NAMES = {
-    "y2022": "2022 (стресс-период)",
-    "wf_oos": "2023 — авг. 2025\n(walk-forward test)",
+    "wf_2022": "2022\n(стресс-период)",
+    "wf_2023": "2023",
+    "wf_2024": "2024",
+    "wf_2025": "янв.–авг. 2025",
     "oot": "сен. 2025 — сен. 2026\n(final OOT)",
 }
 METHOD_NAMES = {
@@ -33,29 +45,38 @@ def method_label(row: pd.Series) -> str:
     return f"{method.upper()} ({suffix})"
 
 
-def save_overview(data: pd.DataFrame) -> None:
-    work = data.copy()
+def horizon_slice(data: pd.DataFrame, horizon: int = 5) -> pd.DataFrame:
+    work = data[data["evaluation_horizon"] == horizon].copy()
+    work = work[work["fold"].isin(SPLIT_NAMES)]
     work["Метод"] = work.apply(method_label, axis=1)
-    aggregate = (
-        work.groupby(["split", "Метод"], as_index=False)
-        .agg(lift=("lift", "mean"), bps=("bps_forward", "mean"), frequency=("signals_per_week", "mean"))
+    return work
+
+
+def save_overview(data: pd.DataFrame) -> None:
+    work = horizon_slice(data)
+    aggregate = work.groupby(["fold", "Метод"], as_index=False).agg(
+        lift=("lift", "mean"),
+        advantage=("moment_advantage_bps", "mean"),
+        lar=("lift_at_risk", "mean"),
+        frequency=("signals_per_week", "mean"),
     )
     order = list(SPLIT_NAMES)
     method_order = list(dict.fromkeys(aggregate["Метод"]))
-    fig, axes = plt.subplots(1, 3, figsize=(18, 8), sharey=True)
+    fig, axes = plt.subplots(2, 2, figsize=(18, 12), sharey=True)
     specs = [
-        ("lift", "Lift относительно обычного дня", 1.0),
-        ("bps", "Выгода относительно будущего среднего, б.п.", 0.0),
-        ("frequency", "Сигналов в неделю", None),
+        ("lift", "Lift относительно обычного дня", 1.0, ".2f"),
+        ("advantage", "Выгода момента ±h, б.п.", 0.0, ".0f"),
+        ("lar", "Lift-at-Risk (fixed)", 1.0, ".2f"),
+        ("frequency", "Сигналов в неделю", None, ".2f"),
     ]
-    for axis, (metric, title, reference) in zip(axes, specs, strict=True):
-        pivot = aggregate.pivot(index="Метод", columns="split", values=metric).reindex(
+    for axis, (metric, title, reference, fmt) in zip(axes.ravel(), specs, strict=True):
+        pivot = aggregate.pivot(index="Метод", columns="fold", values=metric).reindex(
             index=method_order, columns=order
         )
         sns.heatmap(
             pivot,
             annot=True,
-            fmt=".2f" if metric != "bps" else ".0f",
+            fmt=fmt,
             cmap="RdYlGn",
             center=reference,
             linewidths=0.5,
@@ -67,9 +88,9 @@ def save_overview(data: pd.DataFrame) -> None:
         axis.set_ylabel("")
         axis.set_xticklabels([SPLIT_NAMES[item] for item in order], rotation=0, fontsize=9)
     fig.suptitle(
-        "Правила и модели на цели «в следующие 5 публикаций дешевле не станет»",
+        "Правила и модели, оценка h=5 по метрикам metrics-ground.md",
         fontsize=16,
-        y=1.02,
+        y=1.01,
     )
     fig.text(
         0.5,
@@ -84,15 +105,15 @@ def save_overview(data: pd.DataFrame) -> None:
 
 
 def save_oot_corridors(data: pd.DataFrame) -> None:
-    selected = data[
-        (data["split"] == "oot")
+    selected = horizon_slice(data)
+    selected = selected[
+        (selected["fold"] == "oot")
         & (
-            data["method"].isin(["random", "momentum", "level", "reversal", "seasonality"])
-            | ((data["method"] == "catboost") & (data["feature_groups"] == "A,B"))
-            | ((data["method"] == "logreg") & (data["feature_groups"] == "A,B,C"))
+            selected["method"].isin(["random", "momentum", "level", "reversal", "seasonality"])
+            | ((selected["method"] == "catboost") & (selected["feature_groups"] == "A,B"))
+            | ((selected["method"] == "logreg") & (selected["feature_groups"] == "A,B,C"))
         )
     ].copy()
-    selected["Метод"] = selected.apply(method_label, axis=1)
     selected["Коридор"] = selected["corridor"].str.replace("RUB->", "RUB→", regex=False)
     order = [
         "Случайный день",
@@ -115,7 +136,7 @@ def save_oot_corridors(data: pd.DataFrame) -> None:
         cbar_kws={"label": "Lift"},
         ax=axis,
     )
-    axis.set_title("Final OOT: где метод лучше случайного дня", fontsize=15, pad=14)
+    axis.set_title("Final OOT, h=5: где метод лучше случайного дня", fontsize=15, pad=14)
     axis.set_xlabel("")
     axis.set_ylabel("")
     fig.text(
@@ -130,13 +151,210 @@ def save_oot_corridors(data: pd.DataFrame) -> None:
     plt.close(fig)
 
 
+def save_requirements_gate(data: pd.DataFrame, diagnostics: pd.DataFrame, horizon: int) -> None:
+    """Три требования кейса на одном полотне: точность, значимая выгода, целевая частота."""
+    work = horizon_slice(data, horizon)
+    work["Lift ≥ 1.3"] = work["lift"] >= 1.3
+    work["Выгода момента > 0"] = work["moment_advantage_bps"] > 0
+    work["Частота 1–2 сигнала\nв неделю"] = work["signals_per_week"].between(1, 2)
+    columns = list(work.columns[-3:])
+    share = work.groupby("Метод")[columns].mean().mul(100).sort_values(columns[0])
+    fig, axis = plt.subplots(figsize=(12, 8))
+    sns.heatmap(
+        share,
+        annot=True,
+        fmt=".0f",
+        cmap="RdYlGn",
+        vmin=0,
+        vmax=100,
+        linewidths=0.7,
+        cbar_kws={"label": "Доля пройденных срезов, %"},
+        ax=axis,
+    )
+    axis.set_title(
+        f"Требования кейса на h={horizon}: доля пройденных срезов из 25\n"
+        "(5 коридоров × 5 периодов walk-forward и OOT)",
+        fontsize=14,
+        pad=16,
+    )
+    axis.set_xlabel("")
+    axis.set_ylabel("")
+    axis.set_xticklabels(axis.get_xticklabels(), rotation=0, fontsize=9)
+    fig.text(
+        0.5,
+        -0.04,
+        "Неопределённая метрика считается непройденным требованием: отсутствие сигналов не является доказательством качества.",
+        ha="center",
+        fontsize=9,
+    )
+    fig.tight_layout()
+    fig.savefig(OUTPUT / f"ml_requirements_gate_h{horizon}.png", dpi=180, bbox_inches="tight")
+    plt.close(fig)
+
+
+def save_feature_ladder(data: pd.DataFrame, horizon: int) -> None:
+    """LogReg против CatBoost на всех четырёх ступенях групп признаков."""
+    work = horizon_slice(data, horizon)
+    work = work[(work["fold"] == "oot") & work["feature_groups"].isin(LADDER)]
+    work["Коридор"] = work["corridor"].str.replace("RUB->", "RUB→", regex=False)
+    fig, axes = plt.subplots(1, 2, figsize=(15, 6))
+    for axis, method in zip(axes, ("logreg", "catboost"), strict=True):
+        pivot = work[work["method"] == method].pivot(
+            index="feature_groups", columns="Коридор", values="lift"
+        ).reindex(LADDER)
+        sns.heatmap(
+            pivot,
+            annot=True,
+            fmt=".2f",
+            cmap="RdYlGn",
+            center=1.3,
+            vmin=0,
+            vmax=2.6,
+            linewidths=0.7,
+            cbar=False,
+            ax=axis,
+        )
+        defined = int(pivot.notna().to_numpy().sum())
+        axis.set_title(f"{method.upper()}: определён lift в {defined} из 20 клеток", fontsize=12)
+        axis.set_xlabel("")
+        axis.set_ylabel("")
+        axis.set_yticks(np.arange(len(LADDER)) + 0.5)
+        axis.set_yticklabels(LADDER, rotation=0)
+    axes[0].set_ylabel("Накопительные группы признаков")
+    fig.suptitle(
+        f"Вклад групп признаков на одинаковых ступенях, final OOT (сен. 2025 — сен. 2026), h={horizon}\n"
+        "Зелёный — lift не ниже требования 1.3, красный — ниже",
+        fontsize=14,
+    )
+    fig.text(
+        0.5,
+        -0.03,
+        "Пустая клетка — модель не выдала ни одного сигнала в этом коридоре, поэтому lift не определён.\n"
+        "CatBoost на A и A,B,C обучен отдельно: легаси-матрица эти две ступени пропускала, "
+        "и сравнение методов на них было невозможно.",
+        ha="center",
+        fontsize=9,
+    )
+    fig.tight_layout()
+    fig.savefig(OUTPUT / f"ml_feature_ladder_h{horizon}.png", dpi=180, bbox_inches="tight")
+    plt.close(fig)
+
+
+def save_lar_ranking(data: pd.DataFrame, horizon: int) -> None:
+    """LAR ранжирует модели, поэтому показываем каждый коридор отдельно, а не одно среднее."""
+    work = horizon_slice(data, horizon)
+    work = work[work["fold"] == "oot"].copy()
+    work["Коридор"] = work["corridor"].str.replace("RUB->", "RUB→", regex=False)
+    floor = 0.02
+    work["lift_at_risk"] = work["lift_at_risk"].clip(lower=floor)
+    order = list(work.groupby("Метод")["lift_at_risk"].median().sort_values().index)
+    corridors = sorted(work["Коридор"].unique())
+    offsets = np.linspace(-0.3, 0.3, len(corridors))
+    palette = dict(zip(corridors, sns.color_palette("colorblind", len(corridors)), strict=True))
+    fig, axis = plt.subplots(figsize=(12, 9))
+    for corridor, offset in zip(corridors, offsets, strict=True):
+        part = work[work["Коридор"] == corridor]
+        position = [order.index(name) + offset for name in part["Метод"]]
+        axis.scatter(part["lift_at_risk"], position, color=palette[corridor], s=42,
+                     zorder=3, label=corridor)
+    axis.axvline(1.0, color="#333333", linestyle="--", linewidth=1.4)
+    axis.set_xscale("log")
+    axis.set_yticks(range(len(order)))
+    axis.set_yticklabels(order)
+    axis.set_ylim(-0.7, len(order) - 0.3)
+    axis.set_xlabel("Lift-at-Risk (fixed), логарифмическая шкала")
+    axis.set_title(
+        f"Lift-at-Risk по коридорам, final OOT (сен. 2025 — сен. 2026), h={horizon}\n"
+        "Точка — значение в коридоре, пунктир — нейтральная точка 1",
+        fontsize=14,
+        pad=14,
+    )
+    axis.legend(title="Коридор", loc="lower right", fontsize=9)
+    fig.text(
+        0.5,
+        -0.02,
+        "Конфигурации упорядочены по медиане LAR. Отсутствие точки означает, что сигналов не было и метрика не определена; "
+        f"значения ниже {floor} прижаты к левому краю.\n"
+        "LAR служит для ранжирования при одинаковых правилах оценки и не отменяет провал требований к lift, выгоде и частоте.",
+        ha="center",
+        fontsize=9,
+    )
+    fig.tight_layout()
+    fig.savefig(OUTPUT / f"ml_lar_ranking_h{horizon}.png", dpi=180, bbox_inches="tight")
+    plt.close(fig)
+
+
+def save_metric_profile(data: pd.DataFrame, experiment: str) -> None:
+    """Все пять метрик одной модели на всех горизонтах, отдельная линия на коридор."""
+    work = data[(data["experiment"] == experiment) & (data["fold"] == "oot")].copy()
+    work["Коридор"] = work["corridor"].str.replace("RUB->", "RUB→", regex=False)
+    horizons = sorted(data["evaluation_horizon"].unique())
+    positions = range(len(horizons))
+    corridors = sorted(work["Коридор"].unique())
+    palette = dict(zip(corridors, sns.color_palette("colorblind", len(corridors)), strict=True))
+    fig, axes = plt.subplots(2, 3, figsize=(17, 9))
+    for axis, (metric, title, unit) in zip(axes.ravel(), PROFILE_METRICS, strict=False):
+        pivot = work.pivot(index="Коридор", columns="evaluation_horizon", values=metric)
+        pivot = pivot.reindex(index=corridors, columns=horizons)
+        for corridor in corridors:
+            values = pivot.loc[corridor].to_numpy(dtype=float)
+            axis.plot(positions, values, marker="o", markersize=6, linewidth=1.6,
+                      color=palette[corridor], label=corridor)
+        if metric == "lift":
+            axis.axhline(1.3, color="#333333", linestyle="--", linewidth=1.2)
+        elif metric == "moment_advantage_bps":
+            axis.axhline(0.0, color="#333333", linestyle="--", linewidth=1.2)
+        elif metric == "signals_per_week":
+            axis.axhspan(1, 2, color="#4c9f70", alpha=0.15)
+        elif metric == "lift_at_risk":
+            axis.axhline(1.0, color="#333333", linestyle="--", linewidth=1.2)
+        axis.set_title(title, fontsize=11)
+        axis.set_xticks(list(positions))
+        axis.set_xticklabels([f"h={value}" for value in horizons], fontsize=9)
+        axis.set_ylabel(unit, fontsize=9)
+        if not pivot.notna().to_numpy().any():
+            axis.text(0.5, 0.5, "нет сигналов", transform=axis.transAxes, ha="center",
+                      va="center", fontsize=11, color="#a33")
+    axes.ravel()[-1].axis("off")
+    axes.ravel()[-1].legend(handles=axes.ravel()[0].get_legend_handles_labels()[0],
+                            labels=corridors, title="Коридор", loc="center", fontsize=10)
+    label = method_label(work.iloc[0]) if len(work) else experiment
+    defined = int(work[[metric for metric, _, _ in PROFILE_METRICS]].notna().to_numpy().sum())
+    fig.suptitle(
+        f"{label}: пять метрик кейса на всех горизонтах, final OOT (сен. 2025 — сен. 2026)\n"
+        f"Определено {defined} значений из {5 * len(horizons) * len(corridors)}; "
+        "пунктир — ориентир кейса, зелёная полоса — целевая частота 1–2 сигнала в неделю",
+        fontsize=13,
+    )
+    fig.text(
+        0.5,
+        -0.02,
+        "Разрыв линии означает, что сигналов в этом коридоре не было и метрика не определена. "
+        "Горизонты отложены равномерно, а не пропорционально числу дней.",
+        ha="center",
+        fontsize=9,
+    )
+    fig.tight_layout()
+    fig.savefig(OUTPUT / f"ml_metric_profile_{experiment}.png", dpi=180, bbox_inches="tight")
+    plt.close(fig)
+
+
 def main() -> None:
     sns.set_theme(style="whitegrid", font="DejaVu Sans")
     OUTPUT.mkdir(parents=True, exist_ok=True)
     data = pd.read_csv(INPUT)
     data["feature_groups"] = data["feature_groups"].replace({np.nan: ""})
+    diagnostics = pd.read_csv(DIAGNOSTICS)
     save_overview(data)
     save_oot_corridors(data)
+    # Все пять горизонтов показываются отдельно: усреднение по ним не предусмотрено метриками.
+    for horizon in sorted(data["evaluation_horizon"].unique()):
+        save_requirements_gate(data, diagnostics, horizon)
+        save_feature_ladder(data, horizon)
+        save_lar_ranking(data, horizon)
+    # Профиль метрик строится на модель: горизонты уже заняли ось X.
+    for experiment in sorted(data["experiment"].unique()):
+        save_metric_profile(data, experiment)
 
 
 if __name__ == "__main__":

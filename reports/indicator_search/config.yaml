@@ -1,0 +1,34 @@
+data_path: data/raw/cbr/baseline-2019-2026/rates.csv
+context_path: data/raw/cbr/baseline-2019-2026/context_rates.csv
+public_context_path: data/raw/public/context.csv
+public_sources: []
+target: stay_not_worse
+horizon: 5
+corridors:
+- AMD
+- KZT
+- KGS
+- TJS
+- UZS
+momentum_days: 3
+level_window: 90
+level_quantile: 0.1
+reversal_window: 20
+holiday_lookahead_days: 7
+first_test_year: 2022
+confirmation_start: 2025-09-01
+cooldown_prints:
+- 1
+- 2
+- 3
+- 5
+shortlist_per_family: 5
+shortlist_total: 20
+screening:
+  min_signals: 50
+  min_corridors: 4
+  min_median_lift: 1.0
+  min_mean_bps: 0.0
+  min_positive_share: 0.6
+seed: 0
+reports_dir: reports

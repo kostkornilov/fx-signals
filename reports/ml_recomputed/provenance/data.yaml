@@ -1,0 +1,15 @@
+source: https://www.cbr.ru/scripts/XML_dynamic.asp
+date_from: 2019-01-01
+date_to: 2026-09-02
+output_dir: data/raw/cbr/baseline-2019-2026
+currencies:
+  AMD: R01060
+  KZT: R01335
+  KGS: R01370
+  TJS: R01670
+  UZS: R01717
+context_currencies:
+  USD: R01235
+  EUR: R01239
+  CNY: R01375
+

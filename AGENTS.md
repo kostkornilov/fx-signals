@@ -16,7 +16,7 @@ See `README.md` - "## Быстрый старт" section
 
 ## Git workflow for agents
 
-- Before changing repository files, create or switch to a dedicated agent branch with a descriptive name, for example `codex/experiment-report`.
+- Before changing repository files, create or switch to a dedicated agent branch with a descriptive name, for example `experiment-report`.
 - Do not make repository changes directly on `main` or another shared integration branch.
 - Read-only investigation, explanations, and commands that do not modify tracked or generated project files do not require a separate branch.
 - Before switching or creating a branch in a dirty worktree, inspect the existing changes. Do not move, commit, overwrite, or otherwise claim changes that may belong to the user or another agent. If the existing state makes branch isolation ambiguous, ask the user how to proceed.
