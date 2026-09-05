@@ -9,22 +9,29 @@ import pandas as pd
 from pandas.api.types import is_scalar
 
 from fx_signal.indicators import (
-    RESEARCH_SIGNAL_COLUMNS,
-    RESEARCH_SIGNAL_EFFECT_COLUMN,
+    ALL_SIGNAL_COLUMNS,
+    SIGNAL_EFFECT_COLUMN,
 )
 
+SEASONALITY_SIGNAL = "signal_seasonality"
+
 DEFAULT_CLARITY_COEFFICIENTS = {
+    "signal_seasonality": 1.00,
     "signal_better_than_30_day_average": 1.00,
     "signal_better_than_one_year_ago": 0.95,
     "signal_less_than_one_year_ago": 0.95,
     "signal_better_range_held": 0.80,
+    "signal_level": 0.75,
     "signal_larger_than_usual_latest_improvement": 0.70,
+    "signal_reversal": 0.70,
+    "signal_momentum": 0.65,
     "signal_most_recent_changes_favourable": 0.65,
     "signal_most_recent_changes_unfavourable": 0.65,
 }
 
 DecisionReason = Literal[
     "selected_single_signal",
+    "selected_seasonality_priority",
     "selected_by_effect",
     "stale_market_data",
     "invalid_market_score",
@@ -40,9 +47,9 @@ class SignalScore:
     """Comparable score for one active indicator."""
 
     signal: str
-    effect: float
+    effect: float | None
     clarity: float
-    score: float
+    score: float | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,9 +99,9 @@ def _active_flag(value: object) -> bool:
 
 def _allowed_signals(values: Collection[str] | None) -> frozenset[str]:
     if values is None:
-        return frozenset(RESEARCH_SIGNAL_COLUMNS)
+        return frozenset(ALL_SIGNAL_COLUMNS)
     allowed = frozenset(values)
-    unknown = sorted(allowed.difference(RESEARCH_SIGNAL_COLUMNS))
+    unknown = sorted(allowed.difference(ALL_SIGNAL_COLUMNS))
     if unknown:
         raise ValueError(f"Unknown signal columns: {unknown}")
     return allowed
@@ -105,7 +112,7 @@ def _clarity_coefficients(values: Mapping[str, float] | None) -> dict[str, float
     if values is None:
         return coefficients
 
-    unknown = sorted(set(values).difference(RESEARCH_SIGNAL_COLUMNS))
+    unknown = sorted(set(values).difference(ALL_SIGNAL_COLUMNS))
     if unknown:
         raise ValueError(f"Unknown clarity coefficient signals: {unknown}")
     for signal, raw_coefficient in values.items():
@@ -123,7 +130,7 @@ def _effect_for(
 ) -> float | None:
     if signal_effects is not None:
         return _optional_finite_number(signal_effects.get(signal))
-    return _optional_finite_number(signal_values.get(RESEARCH_SIGNAL_EFFECT_COLUMN[signal]))
+    return _optional_finite_number(signal_values.get(SIGNAL_EFFECT_COLUMN[signal]))
 
 
 def decide_push(
@@ -147,9 +154,7 @@ def decide_push(
     allowed = _allowed_signals(allowed_signals)
     clarity = _clarity_coefficients(clarity_coefficients)
     active = tuple(
-        signal
-        for signal in RESEARCH_SIGNAL_COLUMNS
-        if _active_flag(signal_values.get(signal, False))
+        signal for signal in ALL_SIGNAL_COLUMNS if _active_flag(signal_values.get(signal, False))
     )
     candidates = tuple(signal for signal in active if signal in allowed)
 
@@ -191,10 +196,10 @@ def decide_push(
             signal=signal,
             effect=effect,
             clarity=clarity[signal],
-            score=abs(effect) * clarity[signal],
+            score=abs(effect) * clarity[signal] if effect is not None else None,
         )
         for signal in candidates
-        if (effect := effects[signal]) is not None
+        if (effect := effects[signal]) is not None or signal == SEASONALITY_SIGNAL
     )
 
     if len(candidates) == 1:
@@ -210,13 +215,26 @@ def decide_push(
             signal_scores=scores,
         )
 
-    if len(scores) != len(candidates):
+    if SEASONALITY_SIGNAL in candidates:
+        return result(
+            True,
+            SEASONALITY_SIGNAL,
+            "selected_seasonality_priority",
+            signal_scores=scores,
+        )
+
+    if len(scores) != len(candidates) or any(item.score is None for item in scores):
         return result(False, None, "invalid_signal_effect", signal_scores=scores)
 
-    order = {signal: index for index, signal in enumerate(RESEARCH_SIGNAL_COLUMNS)}
+    order = {signal: index for index, signal in enumerate(ALL_SIGNAL_COLUMNS)}
     winner = max(
         scores,
-        key=lambda item: (item.score, item.clarity, abs(item.effect), -order[item.signal]),
+        key=lambda item: (
+            item.score if item.score is not None else float("-inf"),
+            item.clarity,
+            abs(item.effect) if item.effect is not None else float("-inf"),
+            -order[item.signal],
+        ),
     )
     return result(
         True,
@@ -242,8 +260,8 @@ def add_meta_decisions(
     ``threshold`` may be one fixed number or the name of a per-row threshold column.
     """
     allowed = _allowed_signals(allowed_signals)
-    required = {score_col, *RESEARCH_SIGNAL_COLUMNS}
-    required.update(RESEARCH_SIGNAL_EFFECT_COLUMN[signal] for signal in allowed)
+    required = {score_col, *ALL_SIGNAL_COLUMNS}
+    required.update(SIGNAL_EFFECT_COLUMN[signal] for signal in allowed)
     if isinstance(threshold, str):
         required.add(threshold)
     if freshness_col is not None:

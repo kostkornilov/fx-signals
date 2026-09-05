@@ -4,17 +4,17 @@ import pandas as pd
 import pytest
 
 from fx_signal.indicators import (
-    RESEARCH_SIGNAL_COLUMNS,
-    RESEARCH_SIGNAL_EFFECT_COLUMN,
+    ALL_SIGNAL_COLUMNS,
+    SIGNAL_EFFECT_COLUMN,
 )
 from fx_signal.meta import add_meta_decisions, decide_push
 
 
 def _signal_row(**effects: float | None) -> dict[str, object]:
     row: dict[str, object] = {}
-    for signal in RESEARCH_SIGNAL_COLUMNS:
+    for signal in ALL_SIGNAL_COLUMNS:
         row[signal] = signal in effects
-        row[RESEARCH_SIGNAL_EFFECT_COLUMN[signal]] = effects.get(signal, math.nan)
+        row[SIGNAL_EFFECT_COLUMN[signal]] = effects.get(signal, math.nan)
     return row
 
 
@@ -56,6 +56,36 @@ def test_multiple_signals_choose_largest_clarity_adjusted_effect() -> None:
     assert decision.selected_signal == "signal_better_than_one_year_ago"
     assert decision.selected_effect == pytest.approx(0.05)
     assert decision.selection_score == pytest.approx(0.05 * 0.95)
+
+
+def test_seasonality_has_priority_over_larger_rate_effects() -> None:
+    row = _signal_row(
+        signal_seasonality=None,
+        signal_better_than_one_year_ago=0.20,
+        signal_momentum=0.10,
+    )
+
+    decision = decide_push(market_score=0.9, threshold=0.8, signal_values=row)
+
+    assert decision.should_send
+    assert decision.reason == "selected_seasonality_priority"
+    assert decision.selected_signal == "signal_seasonality"
+    assert decision.selected_effect is None
+    assert decision.selection_score is None
+
+
+def test_original_rate_indicators_compete_by_effect() -> None:
+    row = _signal_row(
+        signal_momentum=0.04,
+        signal_level=0.02,
+        signal_reversal=-0.05,
+    )
+
+    decision = decide_push(market_score=0.9, threshold=0.8, signal_values=row)
+
+    assert decision.should_send
+    assert decision.selected_signal == "signal_reversal"
+    assert decision.selection_score == pytest.approx(0.05 * 0.70)
 
 
 def test_clarity_coefficient_can_make_a_close_effect_win() -> None:

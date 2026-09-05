@@ -11,8 +11,10 @@ The predictor decides **whether to send**. The active indicators decide **which 
 1. If the predictor score is below its fixed threshold, do not send a push.
 2. If no indicator is active, do not send a push.
 3. If one indicator is active, use it.
-4. If several indicators are active, compare their factual effects on one common scale and select
-   the largest effect after a clarity adjustment.
+4. If several indicators are active and seasonality is among them, use seasonality because it is
+   the clearest explanation.
+5. Otherwise, compare factual effects on one common scale and select the largest effect after a
+   clarity adjustment.
 
 This algorithm does not estimate which text will create the most transfers. There is no customer
 behaviour or conversion data. It selects the strongest clear explanation of a moment already
@@ -24,8 +26,8 @@ The meta-algorithm uses only:
 
 - one market-model score;
 - the frozen send threshold for that model;
-- the seven indicator flags;
-- the signed effect calculated by every indicator;
+- the eleven indicator flags: four original and seven research indicators;
+- the signed effect calculated by every rate-based indicator;
 - a fixed clarity coefficient for every indicator;
 - a market-data freshness flag.
 
@@ -40,8 +42,8 @@ Let:
 - `u_t = 1 / q_t` be recipient-currency units per RUB;
 - higher `u_t` be better for the recipient.
 
-Every indicator returns an `effect` as a signed decimal change in `u` relative to its own factual
-benchmark:
+Every rate-based indicator returns an `effect` as a signed decimal change in `u` relative to its own
+factual benchmark:
 
 ```text
 effect = current_or_new_value / benchmark_value - 1
@@ -51,7 +53,17 @@ For example, `effect = 0.02` means 2% more recipient currency, while `effect = -
 Using a dimensionless percentage allows annual, monthly and recent indicators to be compared even
 though their raw calculations use different units and windows.
 
-The seven effects are:
+The four original indicators are:
+
+1. **Momentum:** `u_t / u_t-momentum_days - 1`.
+2. **Level:** `q_rolling_quantile / q_t - 1`. This is the improvement relative to the boundary of
+   the low-rate region that activated the indicator.
+3. **Reversal:** `u_t / u_t-1 - 1`. This is negative when the rate has moved away from the previous
+   favourable point.
+4. **Seasonality:** no exchange-rate effect. It describes proximity to a relevant holiday and is
+   handled by an explicit clarity rule.
+
+The seven research indicators are:
 
 1. **Better than one year ago:** `u_t / u_year - 1`.
 2. **A better range has held:** `minimum(u_t-2 ... u_t) / maximum(u_t-9 ... u_t-3) - 1`.
@@ -65,7 +77,8 @@ The seven effects are:
 
 The sign must be preserved in the rendered text. A negative effect must never be presented as a
 benefit. Selection uses the absolute magnitude because both a strong improvement and a strong
-deterioration can be important facts.
+deterioration can be important facts. Seasonality is the only indicator without a monetary effect;
+the algorithm must not invent one for it.
 
 For user copy, the percentage may be converted into a concrete recipient amount for a fixed example
 such as 10,000 RUB. The amount must be calculated from the same benchmark used by the indicator.
@@ -82,11 +95,13 @@ selection_score = abs(effect) * clarity_coefficient
 
 The initial coefficients are:
 
+- seasonality: `1.00`, plus an explicit top-priority rule;
 - today versus the 30-day average: `1.00`;
 - today versus one year ago, better or worse: `0.95`;
 - a better range has held: `0.80`;
-- a larger-than-usual latest improvement: `0.70`;
-- recent favourable or unfavourable sequence: `0.65`.
+- level: `0.75`;
+- a larger-than-usual latest improvement or reversal: `0.70`;
+- momentum or a recent favourable or unfavourable sequence: `0.65`.
 
 These values are product rules, not learned conversion estimates. They should be changed only after
 a comprehension test or an explicit product decision. Each coefficient must remain in `(0, 1]`.
@@ -106,17 +121,23 @@ INPUT:
 4. Find all active and approved indicators.
 5. If none are active, return NO_PUSH.
 6. If exactly one is active, select it.
-7. If two or more are active:
+7. If two or more are active and seasonality is active, select seasonality.
+8. Otherwise, if two or more are active:
        a. require a finite effect for every active indicator;
        b. calculate abs(effect) * clarity_coefficient;
        c. select the indicator with the highest score;
        d. break an exact tie by clarity, then effect magnitude, then stable indicator order.
-8. Render exactly one push and log the full decision.
+9. Render exactly one push and log the full decision.
 ```
 
 An active indicator without an effect is an upstream data error. With several active indicators the
-algorithm stays silent because it cannot compare them honestly. The single-indicator rule remains
+algorithm stays silent because it cannot compare them honestly. This does not apply when seasonality
+is active because its explicit priority resolves the collision. The single-indicator rule remains
 simple: if only one approved fact is active, it is selected without needing a comparison.
+
+Seasonality is prioritized as a product rule, not because it has a larger market effect. A message
+such as “A common transfer period is approaching” is easier to understand than a percentile,
+momentum or reversal calculation. The market-model gate must still pass before this rule is applied.
 
 ## 5. Example
 
@@ -151,6 +172,9 @@ For every decision, store:
 - each active indicator's signed effect, clarity coefficient and selection score;
 - the selected signed effect and final selection score.
 
+Seasonality has no signed effect or numerical selection score. Its decision reason records that the
+explicit seasonality-priority rule was used.
+
 The model score is used only for the send gate. It must not be multiplied into every indicator score:
 at one timestamp every active indicator shares the same model score, so multiplication would not
 change their order.
@@ -168,6 +192,6 @@ from information available at the decision time.
 ## Final recommendation
 
 Use one predictor as the send/no-send gate. Do not pass a separate free-form `forecast_kind` into the
-meta-algorithm. When several indicators are active, select the one with the largest
-`abs(effect) * clarity_coefficient`, preserve the effect direction in the message, and keep the full
-calculation in the decision log.
+meta-algorithm. Consider all eleven indicators. When several are active, choose seasonality first;
+otherwise select the largest `abs(effect) * clarity_coefficient`. Preserve the effect direction in
+the message and keep the full calculation in the decision log.

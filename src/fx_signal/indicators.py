@@ -7,6 +7,13 @@ import pandas as pd
 
 COUNTRY_BY_CURRENCY = {"AMD": "AM", "KZT": "KZ", "KGS": "KG", "TJS": "TJ", "UZS": "UZ"}
 
+BASELINE_SIGNAL_COLUMNS = (
+    "signal_momentum",
+    "signal_level",
+    "signal_reversal",
+    "signal_seasonality",
+)
+
 RESEARCH_SIGNAL_COLUMNS = (
     "signal_better_than_one_year_ago",
     "signal_better_range_held",
@@ -17,7 +24,14 @@ RESEARCH_SIGNAL_COLUMNS = (
     "signal_most_recent_changes_unfavourable",
 )
 
-RESEARCH_SIGNAL_EFFECT_COLUMN = {signal: f"{signal}_effect" for signal in RESEARCH_SIGNAL_COLUMNS}
+ALL_SIGNAL_COLUMNS = BASELINE_SIGNAL_COLUMNS + RESEARCH_SIGNAL_COLUMNS
+SIGNAL_EFFECT_COLUMN = {signal: f"{signal}_effect" for signal in ALL_SIGNAL_COLUMNS}
+BASELINE_SIGNAL_EFFECT_COLUMNS = tuple(
+    SIGNAL_EFFECT_COLUMN[signal] for signal in BASELINE_SIGNAL_COLUMNS
+)
+RESEARCH_SIGNAL_EFFECT_COLUMN = {
+    signal: SIGNAL_EFFECT_COLUMN[signal] for signal in RESEARCH_SIGNAL_COLUMNS
+}
 RESEARCH_SIGNAL_EFFECT_COLUMNS = tuple(RESEARCH_SIGNAL_EFFECT_COLUMN.values())
 
 
@@ -228,12 +242,24 @@ def add_baseline_indicators(
     for currency, group in rates.groupby("currency", sort=False):
         group = group.sort_values("effective_date").copy()
         price = group["rub_per_unit"]
+        recipient = _recipient_per_rub(price)
         group["signal_momentum"] = _momentum(price, momentum_days)
+        group[SIGNAL_EFFECT_COLUMN["signal_momentum"]] = (
+            recipient / recipient.shift(momentum_days) - 1.0
+        )
         group["signal_level"] = _level(price, level_window, level_quantile)
+        level_threshold = price.rolling(level_window, min_periods=level_window).quantile(
+            level_quantile
+        )
+        group[SIGNAL_EFFECT_COLUMN["signal_level"]] = (level_threshold / price - 1.0).where(
+            price.gt(0)
+        )
         group["signal_reversal"] = _reversal(price, reversal_window)
+        group[SIGNAL_EFFECT_COLUMN["signal_reversal"]] = recipient / recipient.shift(1) - 1.0
         group["signal_seasonality"] = _holiday_signal(
             group["effective_date"], currency, holiday_lookahead_days
         )
+        group[SIGNAL_EFFECT_COLUMN["signal_seasonality"]] = float("nan")
         result_frames.append(group)
     return pd.concat(result_frames).sort_index()
 

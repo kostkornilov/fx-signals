@@ -2,9 +2,12 @@ import pandas as pd
 import pytest
 
 from fx_signal.indicators import (
+    BASELINE_SIGNAL_COLUMNS,
+    BASELINE_SIGNAL_EFFECT_COLUMNS,
     RESEARCH_SIGNAL_COLUMNS,
     RESEARCH_SIGNAL_EFFECT_COLUMN,
     RESEARCH_SIGNAL_EFFECT_COLUMNS,
+    SIGNAL_EFFECT_COLUMN,
     add_baseline_indicators,
     add_research_indicators,
 )
@@ -32,6 +35,10 @@ def test_momentum_level_and_reversal() -> None:
     assert result.loc[10, "signal_momentum"]
     assert result.loc[10, "signal_level"]
     assert result.loc[11, "signal_reversal"]
+    assert result.loc[10, SIGNAL_EFFECT_COLUMN["signal_momentum"]] == pytest.approx(3.0)
+    assert result.loc[10, SIGNAL_EFFECT_COLUMN["signal_level"]] == pytest.approx(0.3)
+    assert result.loc[11, SIGNAL_EFFECT_COLUMN["signal_reversal"]] == pytest.approx(-1 / 3)
+    assert result[SIGNAL_EFFECT_COLUMN["signal_seasonality"]].isna().all()
 
 
 def test_indicators_do_not_change_when_future_is_appended() -> None:
@@ -41,7 +48,7 @@ def test_indicators_do_not_change_when_future_is_appended() -> None:
     )
     short = add_baseline_indicators(rates.iloc[:20], level_window=5, reversal_window=5)
     full = add_baseline_indicators(rates, level_window=5, reversal_window=5)
-    columns = ["signal_momentum", "signal_level", "signal_reversal", "signal_seasonality"]
+    columns = list(BASELINE_SIGNAL_COLUMNS + BASELINE_SIGNAL_EFFECT_COLUMNS)
     pd.testing.assert_frame_equal(short[columns], full.iloc[:20][columns])
 
 
