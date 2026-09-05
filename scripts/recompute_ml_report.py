@@ -7,12 +7,12 @@ import importlib.metadata
 import json
 import math
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import sys
 import tarfile
 import tempfile
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -43,8 +43,6 @@ EXPERIMENT_META = {
 }
 # Rungs the legacy matrix skipped, so LogReg and CatBoost can be compared on every group set.
 EXTRA_JOBS = [('catboost', ['A']), ('catboost', ['A', 'B', 'C'])]
-LEGACY_EXPERIMENTS = [name for name in EXPERIMENT_META
-                      if name not in ('catboost_a', 'catboost_abc')]
 SUMMARY_KEYS = ['experiment', 'method', 'feature_groups', 'corridor', 'currency',
                 'training_horizon', 'evaluation_horizon', 'fold']
 
@@ -134,68 +132,7 @@ def summarize(part, cfg, rng):
         random_hit_rate_lar=hr, random_forward_bps_lar=vr, random_cvar_lar=tr,
         forward_bps_lar=mean_or_nan(v[chosen]),
     )
-    # Resample complete daily outcome vectors, NOT a spliced price trajectory.
-    # Reuse the 200 matched random streams jointly in each bootstrap replicate.
-    full_masks = np.zeros((len(masks), len(part)), bool)
-    full_masks[:, valid] = masks
-    row.update(bootstrap(part, full_masks, cfg, rng))
     return row
-
-
-def bootstrap(part, baseline_masks, cfg, rng):
-    """Moving-block CIs for four outcome metrics, conditional on frozen signals.
-
-    Random policy realizations travel with the same sampled daily outcomes.
-    No policy is refitted, and week matching is defined on the original period.
-    """
-    n, draws = len(part), cfg['bootstrap_draws']
-    block = min(cfg['bootstrap_block'], n)
-    starts = rng.integers(0, n-block+1, size=(draws, math.ceil(n/block)))
-    ix = (starts[..., None]+np.arange(block)).reshape(draws, -1)[:, :n]
-    s = part.eval_signal.to_numpy(bool)[ix]
-    y, v, r, m = [part[c].to_numpy(float)[ix] for c in ('y','v','r','m')]
-    valid = np.isfinite(y)
-    chosen = s & valid
-    ns = chosen.sum(axis=1)
-    with np.errstate(invalid='ignore', divide='ignore'):
-        hit = np.where(chosen, y, 0).sum(axis=1)/ns
-        base = np.nansum(y, axis=1)/valid.sum(axis=1)
-        lift = hit/base
-        value = np.where(chosen, v, 0).sum(axis=1)/ns
-        moment = np.where(s & np.isfinite(m), m, 0).sum(axis=1)/(s & np.isfinite(m)).sum(axis=1)
-    risk = row_cvar(r, chosen)
-    # Vectorized over bootstrap replicates, loop only over baseline realizations.
-    hrs, vrs, trs = [], [], []
-    for mask in baseline_masks:
-        selected = mask[ix] & valid
-        count = selected.sum(axis=1)
-        with np.errstate(invalid='ignore', divide='ignore'):
-            hrs.append(np.where(selected, y, 0).sum(axis=1)/count)
-            vrs.append(np.where(selected, v, 0).sum(axis=1)/count)
-        trs.append(row_cvar(r, selected))
-    # A bootstrap replicate with any empty random stream is undefined, not zero.
-    hr, vr, tr = [np.mean(a, axis=0) for a in (hrs, vrs, trs)]
-    with np.errstate(invalid='ignore', divide='ignore'):
-        lar = hit/hr * np.exp(np.clip(((value-vr)-cfg['rho']*(risk-tr))/cfg['scale_bps'], -745, 709))
-    result = {}
-    for key, arr in zip(('lift','moment_advantage_bps','customer_regret_cvar_95_bps','lift_at_risk'),
-                        (lift, moment, risk, lar), strict=True):
-        good = arr[np.isfinite(arr)]
-        result[key+'_ci_low'], result[key+'_ci_high'] = (
-            np.quantile(good, [0.025, 0.975]) if len(good) else (np.nan, np.nan))
-        result[key+'_bootstrap_valid'] = len(good)
-    return result
-
-
-def row_cvar(values, masks):
-    count = masks.sum(axis=1)
-    k = np.maximum(1, np.ceil(.05*count).astype(int))
-    # Only the largest ceil(5% * maximum count) entries can enter any tail.
-    width = max(1, int(k.max()))
-    selected = np.where(masks, values, -np.inf)
-    top = np.sort(np.partition(selected, -width, axis=1)[:, -width:], axis=1)[:, ::-1]
-    summed = np.where(np.arange(width)[None, :] < k[:, None], top, 0).sum(axis=1)
-    return np.where(count > 0, summed/k, np.nan)
 
 
 def evaluate(output, rates, cfg, suffix):
@@ -204,7 +141,7 @@ def evaluate(output, rates, cfg, suffix):
     fingerprint = hashlib.sha256((json.dumps(cfg, sort_keys=True)+digest(output/f'predictions{suffix}.csv')+
                                  digest(__file__)).encode()).hexdigest()[:12]
     rows = []
-    # Evaluate one horizon at a time. Checkpoints make expensive bootstrap resumable.
+    # Evaluate one horizon at a time; checkpoints keep a long run resumable.
     for h in cfg['evaluation_horizons']:
         checkpoint = output/f'.h{h}{suffix}-{fingerprint}.csv'
         if checkpoint.exists():
@@ -241,7 +178,7 @@ def recover(source, output, cfg):
     for name in ('rates.csv','context_rates.csv','manifest.json'):
         file = source / 'data/raw/cbr/baseline-2019-2026' / name
         manifest['data'][name] = digest(file)
-    for path in ('reports/tables/ml_summary.csv','configs/model.yaml','configs/data.yaml','uv.lock','pyproject.toml'):
+    for path in ('configs/model.yaml','configs/data.yaml','uv.lock','pyproject.toml'):
         content = subprocess.check_output(['git','-C',str(source),'show',f"{cfg['legacy_commit']}:{path}"])
         (snapshots / Path(path).name).write_bytes(content)
     manifest['available_prediction_artifact'] = {}
@@ -284,27 +221,8 @@ def extend(source, output, cfg):
     manifest['extra_jobs'] = {
         'configurations': [f"{method} {','.join(groups)}" for method, groups in EXTRA_JOBS],
         'predictions_sha256': digest(output/'predictions_extra.csv'),
-        'reason': 'Legacy matrix fitted CatBoost only on A,B and A,B,C,D, leaving two rungs unpaired.',
-        'scope': 'Outside the reconstruction check: these rows have no counterpart in the old table.'}
+        'reason': 'Legacy matrix fitted CatBoost only on A,B and A,B,C,D, leaving two rungs unpaired.'}
     path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False))
-
-
-def compare(output):
-    old = pd.read_csv(output/'provenance/ml_summary.csv').fillna({'feature_groups':''})
-    new = pd.read_csv(output/'reconstructed_old_metrics.csv').fillna({'feature_groups':''})
-    keys = ['horizon','corridor','method','split','feature_groups']
-    merged = old.merge(new, on=keys, suffixes=('_old','_new'), how='outer', indicator=True, validate='one_to_one')
-    checks = []
-    numeric = [c for c in old.columns if c not in keys]
-    for _, row in merged.iterrows():
-        for col in numeric:
-            a, b = row[col+'_old'], row[col+'_new']
-            exact = col in ('eligible_days','signal_count','target_positives')
-            match = row['_merge']=='both' and (pd.isna(a) and pd.isna(b) or
-                    np.isclose(a, b, rtol=0 if exact else 1e-8, atol=0 if exact else 1e-8, equal_nan=True))
-            checks.append({**{k:row[k] for k in keys}, 'metric':col, 'old':a, 'reconstructed':b, 'match':bool(match)})
-    pd.DataFrame(checks).to_csv(output/'reconstruction_checks.csv', index=False)
-    return pd.DataFrame(checks)
 
 
 def run():
@@ -322,7 +240,7 @@ def run():
     cfg['scale_bps'] = 100/math.log(1.3)
     output.mkdir(parents=True, exist_ok=True)
     if args.publish_only:
-        publish(output, compare(output))
+        publish(output)
         print(f'Published canonical tables from {output}', flush=True)
         return
     if args.train_extra:
@@ -330,7 +248,7 @@ def run():
         rates = rates.sort_values(['currency','effective_date']).reset_index(drop=True)
         extend(source, output, cfg)
         append_rows(output, evaluate(output, rates, cfg, '_extra'))
-        publish(output, compare(output))
+        publish(output)
         print(f'Added {len(EXTRA_JOBS)} configurations: {output}', flush=True)
         return
     if not args.reuse_predictions:
@@ -340,7 +258,6 @@ def run():
         assert digest(output/'predictions.csv') == manifest['predictions_sha256']
         for name in ('rates.csv','context_rates.csv','manifest.json'):
             assert digest(source/'data/raw/cbr/baseline-2019-2026'/name) == manifest['data'][name]
-    checks = compare(output)
     rates = pd.read_csv(source/'data/raw/cbr/baseline-2019-2026/rates.csv', parse_dates=['effective_date'])
     rates = rates.sort_values(['currency','effective_date']).reset_index(drop=True)
     rows = evaluate(output, rates, cfg, '')
@@ -352,7 +269,7 @@ def run():
     table[table.fold.eq('wf_oos')][KEYS+METRICS].to_csv(output/'wf_oos_metrics.csv',index=False)
     table.drop(columns=METRICS).to_csv(output/'diagnostics.csv',index=False)
     (output/'config.yaml').write_text(yaml.safe_dump(cfg,sort_keys=False))
-    write_report(output, table, checks)
+    write_report(output, table)
     publish_canonical(output)
     print(f'Completed: {output}',flush=True)
 
@@ -369,11 +286,11 @@ def append_rows(output, rows):
         pd.concat([kept, part], ignore_index=True).to_csv(output/name, index=False)
 
 
-def publish(output, checks):
+def publish(output):
     table = pd.concat([pd.read_csv(output/'metrics.csv'), pd.read_csv(output/'wf_oos_metrics.csv')]).merge(
         pd.read_csv(output/'diagnostics.csv'), on=['experiment', 'currency', 'fold', 'evaluation_horizon'],
         how='left', suffixes=('', '_diag'))
-    write_report(output, table, checks)
+    write_report(output, table)
     publish_canonical(output)
 
 
@@ -397,8 +314,7 @@ def publish_canonical(output):
     diagnostics.to_csv(tables/'ml_diagnostics.csv', index=False)
 
 
-def write_report(output, table, checks):
-    mismatch = int((~checks.match).sum())
+def write_report(output, table):
     main = table[table.fold.ne('wf_oos')]
     report = f'''# Пересчёт старого ML-отчёта
 
@@ -407,22 +323,20 @@ def write_report(output, table, checks):
 Легаси-матрица обучала CatBoost только на `A,B` и `A,B,C,D`. Ступени `A` и `A,B,C` доучены тем же
 архивным кодом на тех же фолдах; сигналы легаси-матрицы не пересчитывались, их прогнозы лежат отдельно
 в [predictions.csv](predictions.csv), новые — в [predictions_extra.csv](predictions_extra.csv).
-Сверка со старой таблицей относится только к одиннадцати легаси-конфигурациям.
 
 ## Восстановление
 
-Архив исходного кода: `4c12350`. Статус: **{'численно совпадает со старой таблицей' if not mismatch else 'реконструкция с расхождениями'}**.
-Расходящихся проверок: {mismatch} из {len(checks)}. Подробности: [reconstruction_checks.csv](reconstruction_checks.csv).
-Совпадение агрегатов не доказывает совпадение каждой даты: исходные прогнозы всей матрицы не сохранены.
-Найдённый отдельный артефакт LogReg не использован: его journal не удостоверяет принадлежность запуску матрицы.
+Архив исходного кода: `4c12350`. Прогнозы взяты оттуда без пересчёта.
+Метрики старой схемы удалены: отчёт описывает только определения из `metrics-ground.md`,
+поэтому построчная сверка со старой таблицей больше не ведётся.
+Найденный отдельный артефакт LogReg не использован: его journal не удостоверяет принадлежность запуску матрицы.
 Версии окружения, SHA256 данных и прогнозов: [manifest](provenance/manifest.json).
-Старые конфиги, таблица и lock-файл сохранены в `provenance/`; модели запускались в текущем окружении,
+Старые конфиги и lock-файл сохранены в `provenance/`; модели запускались в текущем окружении,
 поэтому исторический lock-файл сам по себе не является свидетельством совпадения runtime.
 
 ## Что изменилось в оценке
 
 Основная таблица перезаписывает [reports/tables/ml_summary.csv](../tables/ml_summary.csv).
-Копия старой схемы лежит в [provenance/ml_summary.csv](provenance/ml_summary.csv).
 Технический след прогона: [metrics.csv](metrics.csv).
 Все шесть определений соответствуют [metrics-ground.md](metrics-ground.md).
 `moment_advantage_bps` использует ±h и не является переименованием `bps_forward`.
@@ -432,13 +346,11 @@ def write_report(output, table, checks):
 а не пять отдельно обученных моделей. Сигналы проходят ровно старый фильтр `has_fact` для ML;
 нового cooldown нет. Частота и кучность характеризуют этот исторический поток без политики пилота.
 
-Диагностика и 95% CI: [../tables/ml_diagnostics.csv](../tables/ml_diagnostics.csv) и [diagnostics.csv](diagnostics.csv). Интервалы рассчитаны для lift,
-выгоды момента, CVaR и LAR: 1000 moving-block повторов, блок 20 наблюдений.
-Пересэмплируются готовые исходы вместе с сигналами и 200 исходными случайными потоками;
-цены на стыках блоков не используются. Это условные интервалы для фиксированной модели и случайных
-реализаций, без переобучения. Недельное сопоставление базы задано на исходном периоде.
-Число определённых bootstrap-повторов указано отдельно; при редких сигналах интервалы могут быть NaN.
-Для частоты и кучности приведены точные описательные значения наблюдаемого потока, без bootstrap CI.
+Диагностика: [../tables/ml_diagnostics.csv](../tables/ml_diagnostics.csv) и [diagnostics.csv](diagnostics.csv). Приведены оба hit rate, число
+оценённых и исключённых сигналов, доля пустых недель и превышений лимита, границы периода.
+Доверительных интервалов нет: все значения — точные описательные величины наблюдавшегося потока.
+Случайная база для LAR остаётся частью самой метрики: 200 потоков с тем же числом сигналов
+в каждой календарной неделе, их hit rate, выгода и CVaR сохранены в диагностике отдельными колонками.
 
 ## Периоды и ограничения
 

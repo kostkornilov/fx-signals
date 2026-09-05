@@ -30,7 +30,5 @@ screening:
   min_median_lift: 1.0
   min_mean_bps: 0.0
   min_positive_share: 0.6
-bootstrap_draws: 500
-bootstrap_block: 20
 seed: 0
 reports_dir: reports

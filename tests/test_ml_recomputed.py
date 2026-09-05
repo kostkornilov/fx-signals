@@ -10,8 +10,7 @@ spec = importlib.util.spec_from_file_location(
 report = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(report)
 
-CFG = dict(baseline_draws=20, bootstrap_draws=30, bootstrap_block=2,
-           rho=2, scale_bps=100/np.log(1.3))
+CFG = dict(baseline_draws=20, rho=2, scale_bps=100/np.log(1.3))
 
 
 def make(prices, dates=None):
@@ -79,13 +78,12 @@ def test_cluster_denominator_and_horizon_invariance():
 
 
 def test_discrete_cvar_and_random_neutrality():
-    values = np.arange(1.,101.)[None,:]
-    assert report.row_cvar(values,np.ones_like(values,bool))[0]==98
+    assert report.empirical_cvar(np.arange(1.,101.))==98
     assert report.lar_value(.5,10,20,(.5,10,20),2,100/np.log(1.3))==1
     assert np.isnan(report.lar_value(.5,10,20,(0,10,20),2,100))
 
 
-def test_bootstrap_is_reproducible():
+def test_summary_is_reproducible():
     p=report.outcomes(make([1.,.9,1.1,1.,1.2,1.,1.3]),1)
     p['eval_signal']=[True,False,True,False,True,False,True]
     a=report.summarize(p,CFG,np.random.default_rng(123))

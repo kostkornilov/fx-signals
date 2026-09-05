@@ -9,9 +9,7 @@
 ## Discovery outer folds
 
 - Средний macro lift: 0.828
-- 95% moving-block bootstrap CI lift: [0.732, 0.937]
 - Средний эффект: -15.8 б.п.
-- 95% CI эффекта: [-36.1, 5.5] б.п.
 - Средняя частота по коридорам: 0.863 сигнала в неделю
 - Коридоров со средним lift > 1: 0/5
 - Публичный внешний контекст: not loaded: configured public sources were unavailable during this run
@@ -25,4 +23,4 @@
 - oot: `or__oversold__rsi_w10_p40__level__near_min_w120_bp10`, cooldown=1
 
 Период после 2025-09-01 показан только как повторно
-использованный confirmation и не входит в bootstrap CI.
+использованный confirmation и не входит в discovery-оценки.

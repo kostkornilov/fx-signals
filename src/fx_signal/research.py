@@ -101,52 +101,26 @@ def build_market_component_eda(config: dict, repo_root: Path) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def _paired_bootstrap(
+def _paired_effect(
     group: pd.DataFrame,
     candidate_signal: str,
     baseline_signal: str,
     *,
     target_col: str,
     forward_col: str,
-    draws: int,
-    block_size: int,
-    seed: int,
 ) -> dict[str, float]:
     target = group[target_col].astype(bool).to_numpy()
     candidate = group[candidate_signal].astype(bool).to_numpy()
     baseline = group[baseline_signal].astype(bool).to_numpy()
     benefits = forward_bps(group["rub_per_unit"], group[forward_col]).to_numpy()
-
-    def effect(index: np.ndarray) -> tuple[float, float]:
-        y, left, right, bps = target[index], candidate[index], baseline[index], benefits[index]
-        prevalence = y.mean()
-        if not prevalence or not left.any() or not right.any():
-            return np.nan, np.nan
-        delta_lift = y[left].mean() / prevalence - y[right].mean() / prevalence
-        delta_bps = np.nanmean(bps[left]) - np.nanmean(bps[right])
-        return float(delta_lift), float(delta_bps)
-
-    point_lift, point_bps = effect(np.arange(len(group)))
-    rng = np.random.default_rng(seed)
-    starts = np.arange(max(len(group) - block_size + 1, 1))
-    blocks_needed = int(np.ceil(len(group) / block_size))
-    samples = []
-    for _ in range(draws):
-        picked = rng.choice(starts, size=blocks_needed, replace=True)
-        index = np.concatenate(
-            [np.arange(start, min(start + block_size, len(group))) for start in picked]
-        )[: len(group)]
-        samples.append(effect(index))
-    sampled = np.asarray(samples, dtype=float)
-    valid_lift = sampled[:, 0][np.isfinite(sampled[:, 0])]
-    valid_bps = sampled[:, 1][np.isfinite(sampled[:, 1])]
+    prevalence = target.mean()
+    if not prevalence or not candidate.any() or not baseline.any():
+        return {"delta_lift": np.nan, "delta_bps": np.nan}
     return {
-        "delta_lift": point_lift,
-        "delta_lift_ci_low": float(np.quantile(valid_lift, 0.025)) if len(valid_lift) else np.nan,
-        "delta_lift_ci_high": float(np.quantile(valid_lift, 0.975)) if len(valid_lift) else np.nan,
-        "delta_bps": point_bps,
-        "delta_bps_ci_low": float(np.quantile(valid_bps, 0.025)) if len(valid_bps) else np.nan,
-        "delta_bps_ci_high": float(np.quantile(valid_bps, 0.975)) if len(valid_bps) else np.nan,
+        "delta_lift": float(
+            target[candidate].mean() / prevalence - target[baseline].mean() / prevalence
+        ),
+        "delta_bps": float(np.nanmean(benefits[candidate]) - np.nanmean(benefits[baseline])),
     }
 
 
@@ -155,10 +129,8 @@ def _decision(row: pd.Series, *, min_signals_per_week: float) -> str:
         return "unusable"
     if row.get("signals_per_week", 0.0) < min_signals_per_week:
         return "insufficient_frequency"
-    if row.get("delta_lift_ci_low", np.nan) > 0 and row.get("delta_bps", np.nan) >= 0:
-        return "adopt"
     if row.get("delta_lift", np.nan) > 0 and row.get("delta_bps", np.nan) >= 0:
-        return "promising"
+        return "adopt"
     return "reject"
 
 
@@ -216,15 +188,12 @@ def run_research(config_path: Path) -> Path:
             for split in ("y2022", "wf_oos", "oot"):
                 subset = _split_frame(joined, folds, split)
                 for currency, group in subset.dropna(subset=[target_col]).groupby("currency"):
-                    stats = _paired_bootstrap(
+                    stats = _paired_effect(
                         group,
                         "candidate_signal",
                         "baseline_signal",
                         target_col=target_col,
                         forward_col=f"forward_mean_h{horizon}",
-                        draws=int(config.get("bootstrap_draws", 400)),
-                        block_size=int(config.get("bootstrap_block_size", 20)),
-                        seed=int(config.get("seed", 0)),
                     )
                     candidate_count = int(group["candidate_signal"].sum())
                     span_weeks = max(

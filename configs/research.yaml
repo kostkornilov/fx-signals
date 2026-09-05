@@ -18,8 +18,6 @@ target_signals_per_week: [1.0, 2.0]
 cooldown_days: 2
 max_signals_7d: 2
 decision_min_signals_per_week: 0.8
-bootstrap_draws: 400
-bootstrap_block_size: 20
 seed: 0
 output_dir: reports/research
 baseline_experiment: cbr_full_logreg

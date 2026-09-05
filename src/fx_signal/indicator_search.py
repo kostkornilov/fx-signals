@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from dataclasses import asdict
 from pathlib import Path
 
@@ -199,16 +198,12 @@ def _select_policy(frame: pd.DataFrame, candidates: dict[str, pd.Series], config
     return name, cooldown, summary
 
 
-def _bootstrap(selected: pd.DataFrame, config: dict) -> dict[str, float]:
-    draws = int(config.get("bootstrap_draws", 500))
-    block = int(config.get("bootstrap_block", 20))
+def _discovery_effect(selected: pd.DataFrame, config: dict) -> dict[str, float]:
     horizon = int(config["horizon"])
     target_col = target_column(str(config.get("target", "stay_not_worse")), horizon)
-    rng = np.random.default_rng(int(config.get("seed", 0)))
-    lift_draws, bps_draws = [], []
-    groups = [group.sort_values("effective_date") for _, group in selected.groupby("currency")]
     point_lifts, point_bps = [], []
-    for group in groups:
+    for _, group in selected.groupby("currency"):
+        group = group.sort_values("effective_date")
         signal = group["selected_signal"].to_numpy(dtype=bool)
         target = group[target_col].to_numpy(dtype=bool)
         if signal.sum() and target.mean() > 0:
@@ -216,31 +211,9 @@ def _bootstrap(selected: pd.DataFrame, config: dict) -> dict[str, float]:
             price = group["rub_per_unit"].to_numpy(dtype=float)
             future = group[f"forward_mean_h{horizon}"].to_numpy(dtype=float)
             point_bps.append(float((((future - price) / price * 1e4)[signal]).mean()))
-    for _ in range(draws):
-        corridor_lifts, corridor_bps = [], []
-        for group in groups:
-            n = len(group)
-            starts = rng.integers(0, max(n - block + 1, 1), size=max(int(np.ceil(n / block)), 1))
-            positions = np.concatenate([np.arange(start, min(start + block, n)) for start in starts])[:n]
-            sample = group.iloc[positions]
-            signal = sample["selected_signal"].to_numpy(dtype=bool)
-            target = sample[target_col].to_numpy(dtype=bool)
-            if signal.sum() and target.mean() > 0:
-                corridor_lifts.append(float(target[signal].mean() / target.mean()))
-                price = sample["rub_per_unit"].to_numpy(dtype=float)
-                future = sample[f"forward_mean_h{horizon}"].to_numpy(dtype=float)
-                bps = (future - price) / price * 1e4
-                corridor_bps.append(float(bps[signal].mean()))
-        if corridor_lifts:
-            lift_draws.append(float(np.mean(corridor_lifts)))
-            bps_draws.append(float(np.mean(corridor_bps)))
     return {
         "lift_point": float(np.mean(point_lifts)) if point_lifts else np.nan,
         "bps_point": float(np.mean(point_bps)) if point_bps else np.nan,
-        "lift_ci_low": float(np.quantile(lift_draws, 0.025)) if lift_draws else np.nan,
-        "lift_ci_high": float(np.quantile(lift_draws, 0.975)) if lift_draws else np.nan,
-        "bps_ci_low": float(np.quantile(bps_draws, 0.025)) if bps_draws else np.nan,
-        "bps_ci_high": float(np.quantile(bps_draws, 0.975)) if bps_draws else np.nan,
     }
 
 
@@ -309,10 +282,9 @@ def run_indicator_search(config_path: Path) -> Path:
     predictions = pd.concat(prediction_rows).sort_index() if prediction_rows else pd.DataFrame()
     predictions.to_csv(output_dir / "predictions.csv", index=False)
     discovery = predictions[predictions["search_fold"].ne("confirmation")].copy()
-    ci = _bootstrap(discovery, config) if not discovery.empty else {}
-    (output_dir / "bootstrap.json").write_text(json.dumps(ci, indent=2), encoding="utf-8")
+    effect = _discovery_effect(discovery, config) if not discovery.empty else {}
     (output_dir / "config.yaml").write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
-    _write_report(output_dir / "REPORT.md", selected_table, metrics_all, ci, len(specs), config)
+    _write_report(output_dir / "REPORT.md", selected_table, metrics_all, effect, len(specs), config)
     return output_dir / "REPORT.md"
 
 
@@ -331,24 +303,22 @@ def run_indicator_report(config_path: Path) -> Path:
     metrics = pd.read_csv(output_dir / "metrics.csv")
     catalog_size = len(pd.read_csv(output_dir / "catalog.csv"))
     discovery = predictions[predictions["search_fold"].ne("confirmation")]
-    ci = _bootstrap(discovery, config)
-    (output_dir / "bootstrap.json").write_text(json.dumps(ci, indent=2), encoding="utf-8")
+    effect = _discovery_effect(discovery, config)
     report = output_dir / "REPORT.md"
-    _write_report(report, selected, metrics, ci, catalog_size, config)
+    _write_report(report, selected, metrics, effect, catalog_size, config)
     return report
 
 
-def _write_report(path: Path, selected: pd.DataFrame, metrics: pd.DataFrame, ci: dict,
+def _write_report(path: Path, selected: pd.DataFrame, metrics: pd.DataFrame, effect: dict,
                   catalog_size: int, config: dict) -> None:
     discovery = metrics[metrics["split"].ne("confirmation")] if not metrics.empty else metrics
     valid = discovery[discovery["signal_count"].gt(0)] if not discovery.empty else discovery
-    mean_lift = float(ci.get("lift_point", np.nan))
-    mean_bps = float(ci.get("bps_point", np.nan))
+    mean_lift = float(effect.get("lift_point", np.nan))
+    mean_bps = float(effect.get("bps_point", np.nan))
     mean_frequency = float(discovery["signals_per_week"].mean()) if not discovery.empty else 0.0
     positive_corridors = int(valid.groupby("corridor")["lift"].mean().gt(1).sum()) if not valid.empty else 0
     passed = (
-        mean_lift >= 1.3 and ci.get("lift_ci_low", -np.inf) > 1
-        and ci.get("bps_ci_low", -np.inf) > 0 and positive_corridors >= 3
+        mean_lift >= 1.3 and mean_bps > 0 and positive_corridors >= 3
         and 0.8 <= mean_frequency <= 2.5
     )
     selected_lines = "\n".join(
@@ -366,9 +336,7 @@ def _write_report(path: Path, selected: pd.DataFrame, metrics: pd.DataFrame, ci:
 ## Discovery outer folds
 
 - Средний macro lift: {mean_lift:.3f}
-- 95% moving-block bootstrap CI lift: [{ci.get('lift_ci_low', np.nan):.3f}, {ci.get('lift_ci_high', np.nan):.3f}]
 - Средний эффект: {mean_bps:.1f} б.п.
-- 95% CI эффекта: [{ci.get('bps_ci_low', np.nan):.1f}, {ci.get('bps_ci_high', np.nan):.1f}] б.п.
 - Средняя частота по коридорам: {mean_frequency:.3f} сигнала в неделю
 - Коридоров со средним lift > 1: {positive_corridors}/5
 - Публичный внешний контекст: {config.get('_public_context_status', 'unknown')}
@@ -378,6 +346,6 @@ def _write_report(path: Path, selected: pd.DataFrame, metrics: pd.DataFrame, ci:
 {selected_lines}
 
 Период после {config.get('confirmation_start', '2025-09-01')} показан только как повторно
-использованный confirmation и не входит в bootstrap CI.
+использованный confirmation и не входит в discovery-оценки.
 """
     path.write_text(text, encoding="utf-8")

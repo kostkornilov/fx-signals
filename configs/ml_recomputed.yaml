@@ -2,8 +2,6 @@ legacy_commit: 4c12350522c4efb11a78706adccc8744cb6b1cfe
 training_horizon: 5
 evaluation_horizons: [1, 3, 5, 10, 20]
 baseline_draws: 200
-bootstrap_draws: 1000
-bootstrap_block: 20
 seed: 0
 rho: 2
 scale_bps: 381.14946867084015
