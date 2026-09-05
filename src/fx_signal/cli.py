@@ -5,6 +5,7 @@ import typer
 
 from fx_signal.baseline import run_baseline
 from fx_signal.data import fetch_snapshot
+from fx_signal.train import run_summary, run_train
 
 app = typer.Typer(help="Explainable FX signal experiments")
 data_app = typer.Typer(help="Download and prepare market data")
@@ -26,6 +27,24 @@ def baseline(
 ) -> None:
     path = run_baseline(config)
     typer.echo(f"Baseline metrics written to: {path}")
+
+
+@app.command("train")
+def train(
+    config: Annotated[Path, typer.Option(exists=True)] = Path("configs/model.yaml"),
+    exp_name: Annotated[str, typer.Option(help="Experiment id written to the journal")] = "logreg_ab",
+    method: Annotated[str | None, typer.Option(help="Override model/method")] = None,
+) -> None:
+    path = run_train(config, exp_name=exp_name, method=method)
+    typer.echo(f"Experiment journal written to: {path}")
+
+
+@app.command("summary")
+def summary(
+    config: Annotated[Path, typer.Option(exists=True)] = Path("configs/model.yaml"),
+) -> None:
+    path = run_summary(config)
+    typer.echo(f"Summary table written to: {path}")
 
 
 if __name__ == "__main__":
