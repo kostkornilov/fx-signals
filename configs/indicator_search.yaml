@@ -1,0 +1,58 @@
+data_path: data/raw/cbr/baseline-2019-2026/rates.csv
+context_path: data/raw/cbr/baseline-2019-2026/context_rates.csv
+public_context_path: data/raw/public/context.csv
+public_sources:
+  - name: moex_imoex
+    format: moex_iss
+    url: https://iss.moex.com/iss/history/engines/stock/markets/index/securities/IMOEX.json?from=2019-01-01&till=2026-09-02&history.columns=TRADEDATE,CLOSE
+    block: history
+    date_column: TRADEDATE
+    value_column: CLOSE
+    availability_lag_days: 1
+    license: MOEX ISS terms of use
+  - name: moex_rgbi
+    format: moex_iss
+    url: https://iss.moex.com/iss/history/engines/stock/markets/index/securities/RGBI.json?from=2019-01-01&till=2026-09-02&history.columns=TRADEDATE,CLOSE
+    block: history
+    date_column: TRADEDATE
+    value_column: CLOSE
+    availability_lag_days: 1
+    license: MOEX ISS terms of use
+  - name: moex_rvi
+    format: moex_iss
+    url: https://iss.moex.com/iss/history/engines/stock/markets/index/securities/RVI.json?from=2019-01-01&till=2026-09-02&history.columns=TRADEDATE,CLOSE
+    block: history
+    date_column: TRADEDATE
+    value_column: CLOSE
+    availability_lag_days: 1
+    license: MOEX ISS terms of use
+
+target: stay_not_worse
+horizon: 5
+corridors: [AMD, KZT, KGS, TJS, UZS]
+momentum_days: 3
+level_window: 90
+level_quantile: 0.10
+reversal_window: 20
+holiday_lookahead_days: 7
+
+first_test_year: 2022
+confirmation_start: 2025-09-01
+cooldown_prints: [1, 2, 3, 5]
+shortlist_per_family: 5
+shortlist_total: 20
+screening:
+  min_signals: 50
+  min_corridors: 4
+  min_median_lift: 1.0
+  min_mean_bps: 0.0
+  min_positive_share: 0.6
+bootstrap_draws: 500
+bootstrap_block: 20
+seed: 0
+reports_dir: reports
+
+# Public CSV sources are opt-in because historical `available_at` must be defensible.
+# Each entry must define: name, url, date_column, value_column,
+# availability_lag_days and license. Add a source only after documenting its
+# publication convention and redistribution terms.

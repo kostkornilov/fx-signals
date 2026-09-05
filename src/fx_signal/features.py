@@ -6,6 +6,7 @@ import holidays
 import numpy as np
 import pandas as pd
 
+from fx_signal.external import safe_series_name
 from fx_signal.indicators import COUNTRY_BY_CURRENCY, add_baseline_indicators
 
 GROUP_A = (
@@ -24,6 +25,7 @@ GROUP_B = (
 GROUP_C = ("ret_1", "ret_3", "ret_5", "ret_10", "ret_20", "vol_20", "slope_20")
 GROUP_E = ("month", "weekday")
 CONTEXT_CURRENCIES = ("USD", "EUR", "CNY")
+EXTERNAL_SUFFIXES = ("ret_1", "ret_5", "percentile", "vol_20", "staleness_days")
 
 
 def _down_streak(price: pd.Series) -> pd.Series:
@@ -119,6 +121,38 @@ def _align_context(rates: pd.DataFrame, context: pd.DataFrame) -> pd.DataFrame:
     return wide
 
 
+def _align_external(rates: pd.DataFrame, external: pd.DataFrame) -> pd.DataFrame:
+    """Align the last actually available external observation to each decision date."""
+    decisions = (
+        rates[["effective_date"]]
+        .drop_duplicates()
+        .sort_values("effective_date")
+        .rename(columns={"effective_date": "decision_at"})
+    )
+    result = decisions.copy()
+    for series_id, group in external.groupby("series_id", sort=True):
+        prefix = f"ext_{safe_series_name(str(series_id))}"
+        observations = group.sort_values("available_at").copy()
+        observations = observations.drop_duplicates("available_at", keep="last")
+        aligned = pd.merge_asof(
+            decisions,
+            observations[["available_at", "value"]],
+            left_on="decision_at",
+            right_on="available_at",
+            direction="backward",
+            allow_exact_matches=True,
+        )
+        values = aligned["value"]
+        result[f"{prefix}_ret_1"] = values.pct_change(1)
+        result[f"{prefix}_ret_5"] = values.pct_change(5)
+        result[f"{prefix}_percentile"] = _rolling_percentile(values, 90)
+        result[f"{prefix}_vol_20"] = values.pct_change().rolling(20, min_periods=20).std()
+        result[f"{prefix}_staleness_days"] = (
+            aligned["decision_at"] - aligned["available_at"]
+        ).dt.total_seconds() / 86400
+    return result.rename(columns={"decision_at": "effective_date"})
+
+
 def group_d_columns(frame: pd.DataFrame) -> tuple[str, ...]:
     columns: list[str] = []
     for currency in CONTEXT_CURRENCIES:
@@ -129,13 +163,27 @@ def group_d_columns(frame: pd.DataFrame) -> tuple[str, ...]:
                 columns.append(name)
     if "usd_ret_1" in frame.columns and "ret_1" in frame.columns:
         columns.append("residual_usd_1")
+    for prefix in ("local_per_usd", "local_per_cny"):
+        for suffix in ("ret_1", "ret_5", "percentile", "vol_20"):
+            name = f"{prefix}_{suffix}"
+            if name in frame.columns:
+                columns.append(name)
     return tuple(columns)
+
+
+def group_f_columns(frame: pd.DataFrame) -> tuple[str, ...]:
+    return tuple(
+        column
+        for column in frame.columns
+        if column.startswith("ext_") and column.endswith(EXTERNAL_SUFFIXES)
+    )
 
 
 def add_features(
     rates: pd.DataFrame,
     *,
     context: pd.DataFrame | None = None,
+    external: pd.DataFrame | None = None,
     momentum_days: int = 3,
     level_window: int = 90,
     level_quantile: float = 0.10,
@@ -163,6 +211,31 @@ def add_features(
         result = result.merge(aligned, on="effective_date", how="left")
         if "usd_ret_1" in result.columns:
             result["residual_usd_1"] = result["ret_1"] - result["usd_ret_1"]
+        for context_currency in ("usd", "cny"):
+            context_return = f"{context_currency}_ret_1"
+            if context_return not in result.columns:
+                continue
+            local_prefix = f"local_per_{context_currency}"
+            # dlog(LOCAL/CTX) = dlog(RUB/CTX) - dlog(RUB/LOCAL).
+            local_ret_1 = result[context_return] - result["ret_1"]
+            result[f"{local_prefix}_ret_1"] = local_ret_1
+            result[f"{local_prefix}_ret_5"] = (
+                result[f"{context_currency}_ret_5"] - result["ret_5"]
+            )
+            synthetic_level = (
+                1.0 + local_ret_1.fillna(0.0)
+            ).groupby(result["currency"], sort=False).cumprod()
+            result[f"{local_prefix}_percentile"] = synthetic_level.groupby(
+                result["currency"], sort=False
+            ).transform(
+                lambda values: _rolling_percentile(values, 90)
+            )
+            result[f"{local_prefix}_vol_20"] = local_ret_1.groupby(
+                result["currency"], sort=False
+            ).transform(lambda values: values.rolling(20, min_periods=20).std())
+    if external is not None and not external.empty:
+        aligned_external = _align_external(result, external)
+        result = result.merge(aligned_external, on="effective_date", how="left")
     facts = result[list(GROUP_A)].astype("boolean")
     result["has_fact"] = facts.fillna(False).any(axis=1)
     return result
@@ -175,6 +248,7 @@ def columns_for_groups(groups: list[str], frame: pd.DataFrame) -> list[str]:
         "C": GROUP_C,
         "E": GROUP_E,
         "D": group_d_columns(frame),
+        "F": group_f_columns(frame),
     }
     selected: list[str] = []
     for group in groups:
