@@ -1,7 +1,10 @@
 import pandas as pd
+import pytest
 
 from fx_signal.indicators import (
     RESEARCH_SIGNAL_COLUMNS,
+    RESEARCH_SIGNAL_EFFECT_COLUMN,
+    RESEARCH_SIGNAL_EFFECT_COLUMNS,
     add_baseline_indicators,
     add_research_indicators,
 )
@@ -61,6 +64,12 @@ def test_research_annual_gain_and_loss_signals() -> None:
     assert not bool(better_latest["signal_less_than_one_year_ago"])
     assert bool(worse_latest["signal_less_than_one_year_ago"])
     assert not bool(worse_latest["signal_better_than_one_year_ago"])
+    assert better_latest[
+        RESEARCH_SIGNAL_EFFECT_COLUMN["signal_better_than_one_year_ago"]
+    ] == pytest.approx(0.1)
+    assert worse_latest[
+        RESEARCH_SIGNAL_EFFECT_COLUMN["signal_less_than_one_year_ago"]
+    ] == pytest.approx(-0.1)
 
 
 def test_research_short_history_signals() -> None:
@@ -116,6 +125,19 @@ def test_research_short_history_signals() -> None:
     assert bool(latest.loc["AMD", "signal_better_than_30_day_average"])
     assert bool(latest.loc["KGS", "signal_most_recent_changes_favourable"])
     assert bool(latest.loc["UZS", "signal_most_recent_changes_unfavourable"])
+    assert latest.loc[
+        "TJS", RESEARCH_SIGNAL_EFFECT_COLUMN["signal_better_range_held"]
+    ] == pytest.approx(0.1)
+    assert latest.loc[
+        "KZT",
+        RESEARCH_SIGNAL_EFFECT_COLUMN["signal_larger_than_usual_latest_improvement"],
+    ] == pytest.approx(0.05)
+    assert latest.loc[
+        "KGS", RESEARCH_SIGNAL_EFFECT_COLUMN["signal_most_recent_changes_favourable"]
+    ] == pytest.approx(0.07)
+    assert latest.loc[
+        "UZS", RESEARCH_SIGNAL_EFFECT_COLUMN["signal_most_recent_changes_unfavourable"]
+    ] == pytest.approx(-0.07)
 
 
 def test_research_signals_do_not_use_future_and_are_not_wired_into_baseline() -> None:
@@ -126,8 +148,8 @@ def test_research_signals_do_not_use_future_and_are_not_wired_into_baseline() ->
     short = add_research_indicators(rates.iloc[:400])
     full = add_research_indicators(rates)
     pd.testing.assert_frame_equal(
-        short[list(RESEARCH_SIGNAL_COLUMNS)],
-        full.iloc[:400][list(RESEARCH_SIGNAL_COLUMNS)],
+        short[list(RESEARCH_SIGNAL_COLUMNS + RESEARCH_SIGNAL_EFFECT_COLUMNS)],
+        full.iloc[:400][list(RESEARCH_SIGNAL_COLUMNS + RESEARCH_SIGNAL_EFFECT_COLUMNS)],
     )
 
     baseline = add_baseline_indicators(rates.iloc[:20], level_window=5, reversal_window=5)

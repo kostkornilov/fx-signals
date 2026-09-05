@@ -1,262 +1,173 @@
-# Meta-algorithm for push and signal selection
+# Meta-algorithm for push and indicator selection
 
 ## Summary
 
-The meta-algorithm may use only exchange-rate history, the currently active indicators and the
-market model's forecast. It has no information about a particular customer's intent, transfer
-probability, transfer amount, conversion response or value to the bank.
+The system has one predictor of whether the current exchange-rate moment is worth communicating.
+The meta-algorithm does not build another forecast and does not divide predictions into artificial
+types such as `local_min` or `window_closing`.
 
-This means that the algorithm can optimize **when the market moment is good enough for a push**, but
-it cannot estimate which push text will create the most transfers or profit. All signal texts shown
-at the same time share the same future exchange-rate path. Choosing one text instead of another does
-not change the market outcome.
+The predictor decides **whether to send**. The active indicators decide **which fact to show**:
 
-The recommended policy is therefore:
+1. If the predictor score is below its fixed threshold, do not send a push.
+2. If no indicator is active, do not send a push.
+3. If one indicator is active, use it.
+4. If several indicators are active, compare their factual effects on one common scale and select
+   the largest effect after a clarity adjustment.
 
-1. Use the model forecast as the send/no-send gate.
-2. Keep only signals that are true, fresh and consistent with the model's forecast.
-3. If no signal remains, do not send a push.
-4. If one signal remains, select it.
-5. If two or more signals remain, select the clearest explanation using a fixed priority.
+This algorithm does not estimate which text will create the most transfers. There is no customer
+behaviour or conversion data. It selects the strongest clear explanation of a moment already
+approved by the exchange-rate predictor.
 
-The result should be described as the **best available explanation of a model-approved market
-moment**, not the most profitable push.
+## 1. Inputs
 
-## 1. Available information and hard limits
+The meta-algorithm uses only:
 
-### Available inputs
+- one market-model score;
+- the frozen send threshold for that model;
+- the seven indicator flags;
+- the signed effect calculated by every indicator;
+- a fixed clarity coefficient for every indicator;
+- a market-data freshness flag.
 
-At decision time `t`, the algorithm may use:
+It does not use customer intent, transfer probability, transfer amount, conversion, fees or bank
+profit.
 
-- the exchange-rate series available up to `t`;
-- the current corridor and publication time;
-- the values and active flags of all approved indicators;
-- the market model's score, target, forecast direction and forecast horizon;
-- signal freshness and the data needed to render a factual message.
+## 2. Common effect scale
 
-All calculations must use only information that was available at `t`. Future rates may be used for
-walk-forward evaluation, but never to make a live decision.
+Let:
 
-### Unavailable inputs
+- `q_t` be RUB per one unit of recipient currency;
+- `u_t = 1 / q_t` be recipient-currency units per RUB;
+- higher `u_t` be better for the recipient.
 
-The algorithm does not know:
+Every indicator returns an `effect` as a signed decimal change in `u` relative to its own factual
+benchmark:
 
-- whether a customer currently wants to transfer money;
-- the probability that a customer will transfer after a push;
-- the customer's expected transfer amount;
-- whether one signal text converts better than another;
-- fees, margin or incremental bank profit caused by a push;
-- customer-level preferences or notification fatigue.
+```text
+effect = current_or_new_value / benchmark_value - 1
+```
 
-Therefore, a score produced from these inputs is not a conversion score or a profit score. In this
-document it is called a **market-opportunity score**.
+For example, `effect = 0.02` means 2% more recipient currency, while `effect = -0.02` means 2% less.
+Using a dimensionless percentage allows annual, monthly and recent indicators to be compared even
+though their raw calculations use different units and windows.
 
-## 2. Separate timing from explanation
+The seven effects are:
 
-The decision has two different parts.
+1. **Better than one year ago:** `u_t / u_year - 1`.
+2. **A better range has held:** `minimum(u_t-2 ... u_t) / maximum(u_t-9 ... u_t-3) - 1`.
+3. **A larger-than-usual latest improvement:** `u_t / u_t-1 - 1`.
+4. **Today is better than the average for 30 days:** `u_t / average_30d(u) - 1`.
+5. **Most recent changes were favourable:** `u_t / u_t-5 - 1`.
+6. **Less recipient currency than one year ago:** `u_t / u_year - 1`, which is negative when the
+   signal is active.
+7. **Most recent changes were unfavourable:** `u_t / u_t-5 - 1`, which is negative when the signal
+   is active.
 
-### Part A — Is the current market moment strong enough?
+The sign must be preserved in the rendered text. A negative effect must never be presented as a
+benefit. Selection uses the absolute magnitude because both a strong improvement and a strong
+deterioration can be important facts.
 
-The predictive model answers this question. Depending on its trained target, its output may be a
-probability of a favourable future-rate event, an expected forward rate change, or both.
+For user copy, the percentage may be converted into a concrete recipient amount for a fixed example
+such as 10,000 RUB. The amount must be calculated from the same benchmark used by the indicator.
 
-The push becomes eligible only when:
+## 3. Clarity coefficients
 
-- the model score passes a threshold fixed before deployment;
-- the predicted direction is favourable for the intended transfer direction;
-- the rate data and forecast are fresh;
-- the threshold passed an out-of-time, walk-forward test;
-- at least one approved signal can explain the moment truthfully.
+Large but difficult facts should not automatically replace a slightly smaller fact that is much
+easier to understand. The selection score therefore discounts each effect using a fixed clarity
+coefficient:
 
-The threshold controls market quality and alert frequency. It cannot be selected from conversion or
-profit because those outcomes are not available.
+```text
+selection_score = abs(effect) * clarity_coefficient
+```
 
-### Part B — Which truthful signal should explain it?
+The initial coefficients are:
 
-The active indicators describe the same current market moment from different angles. For example,
-today may be better than the 30-day average and better than one year ago at the same time.
+- today versus the 30-day average: `1.00`;
+- today versus one year ago, better or worse: `0.95`;
+- a better range has held: `0.80`;
+- a larger-than-usual latest improvement: `0.70`;
+- recent favourable or unfavourable sequence: `0.65`.
 
-The model score is normally the same for both texts, so it cannot tell us which text will produce
-more transfers. Signal selection must instead optimize properties that can honestly be checked:
+These values are product rules, not learned conversion estimates. They should be changed only after
+a comprehension test or an explicit product decision. Each coefficient must remain in `(0, 1]`.
 
-- the statement matches the model's direction and horizon;
-- the statement is factually true at send time;
-- the comparison is easy to understand;
-- the text uses a concrete recipient-currency amount when possible;
-- the chosen rule is deterministic and auditable.
-
-## 3. Recommended decision algorithm
+## 4. Decision algorithm
 
 ```text
 INPUT:
-    rate history available at time t
-    model forecast M_t
-    set of active signals A_t
+    market_score
+    market_threshold
+    fresh market-data flag
+    active indicators with signed effects
 
-1. Validate data freshness and the model version.
-2. If M_t does not pass the frozen market threshold, return NO_PUSH.
-3. Remove signals that are stale, false, unapproved or inconsistent with M_t.
-4. If no signal remains, return NO_PUSH.
-5. If one signal remains, select it.
-6. If two or more signals remain:
-       a. prefer a direct recipient-amount comparison;
-       b. prefer a familiar reference period over a technical pattern;
-       c. prefer the signal that best matches the forecast direction and horizon;
-       d. break any remaining tie with a stable predefined order.
-7. Render exactly one signal in the push.
-8. Log the model score, threshold, active signals and selected signal.
+1. If market data is stale, return NO_PUSH.
+2. If market_score is missing or invalid, return NO_PUSH.
+3. If market_score < market_threshold, return NO_PUSH.
+4. Find all active and approved indicators.
+5. If none are active, return NO_PUSH.
+6. If exactly one is active, select it.
+7. If two or more are active:
+       a. require a finite effect for every active indicator;
+       b. calculate abs(effect) * clarity_coefficient;
+       c. select the indicator with the highest score;
+       d. break an exact tie by clarity, then effect magnitude, then stable indicator order.
+8. Render exactly one push and log the full decision.
 ```
 
-Delivery limits and campaign competition may still exist elsewhere in the product, but they are not
-part of this market-only algorithm because they require customer or communication data.
+An active indicator without an effect is an upstream data error. With several active indicators the
+algorithm stays silent because it cannot compare them honestly. The single-indicator rule remains
+simple: if only one approved fact is active, it is selected without needing a comparison.
 
-### Suggested clarity priority
+## 5. Example
 
-For a favourable current moment, use this default order:
+Assume the market-model score passes its threshold and two indicators are active:
 
-1. **Today is better than the average for 30 days.**
-2. **Better than one year ago.**
-3. **A better range has held.**
-4. **A larger-than-usual latest improvement.**
-5. **Most recent changes were favourable.**
+```text
+Today versus the 30-day average:
+    effect  = 0.020
+    clarity = 1.00
+    score   = 0.0200
 
-The first two signals have simple reference points and can be expressed as the additional amount the
-recipient gets for the same ruble amount. The other signals require more explanation about a range,
-the usual size of a change or a sequence of observations.
+Today versus one year ago:
+    effect  = 0.050
+    clarity = 0.95
+    score   = 0.0475
+```
 
-For a model-approved deterioration or closing-window message, use:
+The annual indicator wins because its factual effect is much larger.
 
-1. **Most recent changes were unfavourable.**
-2. **Less recipient currency than one year ago.**
+If the annual effect is only `0.0104`, its adjusted score is `0.00988`. A 30-day effect of `0.0100`
+then wins because the simpler comparison is almost as strong before the clarity adjustment.
 
-The short-history signal comes first because it describes the current movement more directly. A
-worsening signal must not be used with a favourable forecast if the two statements would create a
-contradictory message. If the deployed model has no deterioration target, these two signals should
-not independently open the send gate.
+## 6. Output and audit fields
 
-## 4. Variants for choosing between several active signals
+For every decision, store:
 
-### Variant A — Fixed clarity priority
+- whether a push should be sent;
+- the selected indicator;
+- the decision reason;
+- model score and threshold;
+- all active indicators;
+- each active indicator's signed effect, clarity coefficient and selection score;
+- the selected signed effect and final selection score.
 
-Choose the first active signal in a predefined clarity order. The order should favour concrete
-recipient amounts and familiar comparisons such as 30 days or one year.
+The model score is used only for the send gate. It must not be multiplied into every indicator score:
+at one timestamp every active indicator shares the same model score, so multiplication would not
+change their order.
 
-**Advantages:** simple, stable, understandable and easy to audit.
+## 7. Limitations
 
-**Limit:** it is a UX rule, not an estimate of conversion or profit.
+This algorithm ranks the strength and clarity of factual exchange-rate explanations. It cannot know
+which wording has the highest conversion or produces the most money transfers. Such a claim would
+require customer-response data that the project does not have.
 
-**Recommendation:** use this as the default policy under the current data constraints.
-
-### Variant B — Largest model contribution
-
-If the predictive model is interpretable in terms of the same indicators, choose the active signal
-with the largest positive contribution to the forecast.
-
-**Advantages:** the message explains why the model considered the moment favourable.
-
-**Limits:** correlated features can exchange contribution, attribution can be unstable, and the most
-important model feature may produce a difficult message. This method finds the most faithful model
-explanation, not the most profitable text.
-
-**Use:** as a tie-breaker or diagnostic, not as the primary policy.
-
-### Variant C — Best historical rate quality
-
-For every signal, use walk-forward history to calculate its hit rate, average forward movement and
-adverse tail when that signal was active. At a collision, choose the qualified signal with the best
-predefined rate-quality score.
-
-**Advantages:** uses only available market data and rejects indicators that usually describe weak
-moments.
-
-**Limits:** signals often activate in different market regimes. At one shared timestamp they all
-receive the same future rate, so their historical averages do not show which text is better. This
-variant mostly evaluates timing rules already covered by the predictive model.
-
-**Use:** as an offline eligibility test; use cautiously as a selector.
-
-### Variant D — Strongest normalized current evidence
-
-Measure how far each active indicator is beyond its own activation threshold, normalize that value
-using the signal's historical distribution, and choose the most exceptional signal.
-
-**Advantages:** avoids directly comparing percentages, streak lengths and range levels that have
-different units.
-
-**Limits:** the statistically strongest fact is not necessarily the clearest fact. It also does not
-estimate transfer response or profit.
-
-**Use:** only after the clarity rule, as a deterministic tie-breaker between equally clear signals.
-
-### Variant E — Forecast-aligned hybrid
-
-First remove signals that do not match the model's direction or horizon. Then apply the fixed
-clarity priority. If two signals have equal priority, use model contribution or normalized current
-evidence as the final tie-breaker.
-
-**Advantages:** keeps the text faithful to the forecast without presenting a technical signal when
-a clearer explanation is available.
-
-**Limit:** still selects an explanation, not a text with known financial impact.
-
-**Recommendation:** this is the strongest later version if the model exposes reliable direction,
-horizon and feature contributions.
-
-## 5. Why “the most profitable signal” cannot be identified
-
-Suppose two signals are active at the same time:
-
-- today gives 3% more recipient currency than the 30-day average;
-- today gives 8% more recipient currency than one year ago.
-
-There is one current rate and one model forecast. Both messages refer to that same opportunity. Rate
-history can tell us whether the moment later remained favourable, but it cannot tell us whether the
-30-day wording or the one-year wording caused more transfers.
-
-The following statements would therefore be unsupported:
-
-- “Signal A has a higher conversion probability.”
-- “Signal B creates more bank profit.”
-- “This customer is more likely to respond to a short-history signal.”
-
-Those questions require behavioural observations or a controlled message experiment, which are
-outside the current input set. Until such data exists, the honest objective is **good market timing
-plus the clearest truthful explanation**.
-
-## 6. Offline evaluation with rate data only
-
-Use expanding-window or walk-forward evaluation. At every historical decision point, calculate
-features, signals and the model score using only earlier data, then observe the rate over the frozen
-future horizon.
-
-Evaluate the send gate with:
-
-- alert frequency;
-- hit rate for the model's exact target;
-- average forward recipient-currency change;
-- median forward change;
-- worst-tail forward change;
-- stability across time periods and currency corridors;
-- signal freshness and the rate of contradictory explanations.
-
-Evaluate the selector only for properties observable without customer data:
-
-- every selected statement was true at decision time;
-- the selected signal matched the forecast direction and horizon;
-- identical inputs always produced the same choice;
-- the policy did not compare incompatible raw signal units;
-- one and only one message was selected.
-
-Do not report conversion, incremental transfer volume or profit from this evaluation. These outcomes
-cannot be derived from an exchange-rate time series.
+The clarity coefficients are starting assumptions. The exchange-rate predictor and its threshold
+still require leakage-safe walk-forward validation. Indicator effects must also be calculated only
+from information available at the decision time.
 
 ## Final recommendation
 
-Use the model only to decide whether the current moment is strong enough to communicate. When one
-valid signal is active, select it. When several are active, use the forecast-aligned clarity policy:
-remove contradictory signals, prefer a concrete recipient-amount comparison with a familiar period,
-and use model contribution or normalized strength only as a tie-breaker.
-
-This design fits the available data and stays honest about what it can predict. It chooses a good
-market moment and a clear explanation; it does not claim to choose the push that will generate the
-most transfers or money.
+Use one predictor as the send/no-send gate. Do not pass a separate free-form `forecast_kind` into the
+meta-algorithm. When several indicators are active, select the one with the largest
+`abs(effect) * clarity_coefficient`, preserve the effect direction in the message, and keep the full
+calculation in the decision log.

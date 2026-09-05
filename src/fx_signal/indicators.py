@@ -17,6 +17,9 @@ RESEARCH_SIGNAL_COLUMNS = (
     "signal_most_recent_changes_unfavourable",
 )
 
+RESEARCH_SIGNAL_EFFECT_COLUMN = {signal: f"{signal}_effect" for signal in RESEARCH_SIGNAL_COLUMNS}
+RESEARCH_SIGNAL_EFFECT_COLUMNS = tuple(RESEARCH_SIGNAL_EFFECT_COLUMN.values())
+
 
 def _momentum(price: pd.Series, days: int) -> pd.Series:
     falling = price.diff().lt(0)
@@ -146,6 +149,8 @@ def _add_research_indicators_to_group(
     )
     annual_gain = recipient / annual_reference - 1.0
     annual_loss = 1.0 - recipient / annual_reference
+    result[RESEARCH_SIGNAL_EFFECT_COLUMN["signal_better_than_one_year_ago"]] = annual_gain
+    result[RESEARCH_SIGNAL_EFFECT_COLUMN["signal_less_than_one_year_ago"]] = annual_gain
     result["signal_better_than_one_year_ago"] = _threshold_crossing(
         annual_gain,
         year_gain_threshold,
@@ -158,12 +163,16 @@ def _add_research_indicators_to_group(
     latest_min = recipient.rolling(3, min_periods=3).min()
     earlier_max = recipient.shift(3).rolling(7, min_periods=7).max()
     range_gain = latest_min / earlier_max - 1.0
+    result[RESEARCH_SIGNAL_EFFECT_COLUMN["signal_better_range_held"]] = range_gain
     range_condition = range_gain.gt(range_gain_threshold).where(range_gain.notna())
     result["signal_better_range_held"] = _rising_edge(range_condition)
 
     latest_move = recipient / recipient.shift(1) - 1.0
     usual_move = latest_move.abs().shift(1).rolling(10, min_periods=10).median()
     unusual_baseline = usual_move.clip(lower=unusual_move_epsilon)
+    result[RESEARCH_SIGNAL_EFFECT_COLUMN["signal_larger_than_usual_latest_improvement"]] = (
+        latest_move
+    )
     unusual_condition = (
         latest_move.gt(unusual_improvement_floor)
         & latest_move.ge(unusual_move_multiplier * unusual_baseline)
@@ -177,6 +186,9 @@ def _add_research_indicators_to_group(
     )
     gain_vs_average = recipient / average_30_day - 1.0
     valid_average = count_30_day.ge(15) & coverage_30_day.ge(25)
+    result[RESEARCH_SIGNAL_EFFECT_COLUMN["signal_better_than_30_day_average"]] = (
+        gain_vs_average.where(valid_average)
+    )
     result["signal_better_than_30_day_average"] = _threshold_crossing(
         gain_vs_average.where(valid_average),
         average_30_day_gain_threshold,
@@ -189,6 +201,8 @@ def _add_research_indicators_to_group(
     unfavourable_count = unfavourable.rolling(5, min_periods=5).sum()
     recent_gain = recipient / recipient.shift(5) - 1.0
     recent_loss = 1.0 - recipient / recipient.shift(5)
+    result[RESEARCH_SIGNAL_EFFECT_COLUMN["signal_most_recent_changes_favourable"]] = recent_gain
+    result[RESEARCH_SIGNAL_EFFECT_COLUMN["signal_most_recent_changes_unfavourable"]] = recent_gain
 
     favourable_condition = (favourable_count.ge(4) & recent_gain.gt(recent_gain_threshold)).where(
         favourable_count.notna() & recent_gain.notna()
@@ -238,10 +252,12 @@ def add_research_indicators(
     recent_loss_threshold: float = 0.0,
     annual_reference_max_gap_days: int = 7,
 ) -> pd.DataFrame:
-    """Add the seven research signals without wiring them into the model feature groups.
+    """Add the seven research signals and their signed effects.
 
     Gain and loss thresholds are decimal fractions. Their zero defaults expose the raw signal
-    direction for research; production thresholds must be calibrated per corridor.
+    direction for research; production thresholds must be calibrated per corridor. Effect columns
+    are also decimal fractions: positive means more recipient currency and negative means less.
+    The research signals are not added to the model feature groups.
     """
     required = {"currency", "effective_date", "rub_per_unit"}
     missing = required.difference(rates.columns)
@@ -271,6 +287,8 @@ def add_research_indicators(
         result = rates.copy()
         for column in RESEARCH_SIGNAL_COLUMNS:
             result[column] = pd.Series(index=result.index, dtype="boolean")
+        for column in RESEARCH_SIGNAL_EFFECT_COLUMNS:
+            result[column] = pd.Series(index=result.index, dtype=float)
         return result
 
     result_frames = [
