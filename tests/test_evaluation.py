@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from fx_signal.evaluation import evaluate_lift, evaluate_method, forward_bps
+from fx_signal.metrics import evaluate_lift, evaluate_method, forward_bps
 
 
 def test_lift_matches_manual_calculation() -> None:
@@ -56,3 +56,6 @@ def test_evaluate_method_reports_forward_bps_and_frequency() -> None:
     assert result["signal_hit_rate"] == 1.0
     assert result["bps_forward"] == pytest.approx(500.0)
     assert result["signals_per_week"] > 0
+    assert result["useful_signals_per_100_weeks"] == pytest.approx(100.0)
+    assert result["customer_regret_bps_mean"] == pytest.approx(10_000 / 9)
+    assert result["pushes_per_week"] == pytest.approx(1.0)

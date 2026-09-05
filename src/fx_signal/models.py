@@ -11,7 +11,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
-from fx_signal.evaluation import forward_bps, signals_per_week
+from fx_signal.metrics import forward_bps, signals_per_week
 
 try:
     from catboost import CatBoostClassifier

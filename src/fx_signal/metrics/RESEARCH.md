@@ -105,16 +105,18 @@ evaluation preserves temporal order and evaluates genuine future observations
 
 ### Metrics retained
 
-The recommended scorecard has four primary lines:
+The recommended scorecard has five primary lines:
 
-1. budgeted precision lift;
-2. downside-aware customer value;
-3. useful-alert yield under the communication budget;
-4. worst-slice out-of-time robustness.
+1. lift at the production send budget;
+2. average moment advantage in basis points;
+3. tail customer regret in basis points;
+4. useful-alert yield;
+5. push frequency and budget use.
 
-These cover truth, magnitude of harm, operational usefulness, and generalization. No weighted
-single “mega-score” is recommended: arbitrary weights could allow excellent volume to compensate
-for customer harm. Use constraints and Pareto comparison instead.
+These cover truth, average benefit, magnitude of harm, useful output, and attention cost. Stability
+is an evaluation requirement applied to all five metrics, not a separate metric. No weighted single
+“mega-score” is recommended: arbitrary weights could allow excellent volume to compensate for
+customer harm. Use constraints and Pareto comparison instead.
 
 ### Metrics rejected as primary
 
@@ -140,7 +142,7 @@ Let:
 - `p[c,t]` be RUB paid per one unit of recipient currency; lower is better;
 - `a[c,t]` be 1 only if the *final policy* sends after ranking, cross-corridor arbitration,
   cooldown, and budget enforcement;
-- `h` be a number of fresh rate publications, not calendar days;
+- `h` be the next number of available rate observations, not calendar days;
 - `epsilon` be a pre-registered tolerance for rounding/noise (zero for the initial CBR backtest);
 - `S` be an out-of-time evaluation slice such as `(corridor, fold, regime)`.
 
@@ -149,21 +151,21 @@ Targets must match the message:
 ```text
 good_now_hit[c,t,h] = 1 when p[c,t] <= min(p[c,t+1 : t+h]) * (1 + epsilon)
 
-window_closing_hit[c,t,h,delta] = 1 when
+rate_rise_hit[c,t,h,delta] = 1 when
     p[c,t+h] / p[c,t] - 1 >= delta
 ```
 
 `delta` is a pre-registered materiality threshold. Alternative message claims need separately
 written labels before testing. Do not score all messages against `target_local_min_h`.
 
-### Metric 1 — Budgeted precision lift
+### Metric 1 — Lift at the production send budget
 
 For a fixed message, horizon, slice, and deployed send budget:
 
 ```text
 precision = sum(a * hit) / sum(a)
 random_precision = mean(hit over eligible dates in the same corridor and OOT slice)
-lift@budget = precision / random_precision
+lift = precision / random_precision
 ```
 
 For the closest operational comparator, repeatedly sample random dates with the same number of
@@ -178,7 +180,7 @@ across several corridors and OOT folds.
 Why it fits: it directly asks whether a sent claim is more truthful than spending the same scarce
 slot on a random eligible day.
 
-### Metric 2 — Downside-aware customer value
+### Metric 2 — Average moment advantage
 
 Keep the case-required average-window value:
 
@@ -191,7 +193,12 @@ Positive means the customer receives more foreign currency per RUB than at the s
 average. Report its mean and block-bootstrap 95% confidence interval over sent alerts; the lower
 bound must be above zero.
 
-Add a forward-looking customer regret measure:
+Why it fits: lift measures how often a signal is right, while moment advantage measures the size of
+the average customer benefit.
+
+### Metric 3 — Tail customer regret
+
+Use a forward-looking customer regret measure:
 
 ```text
 regret_bp[c,t,h] =
@@ -203,12 +210,11 @@ best later observation in the decision window. Report mean regret and `ES95(regr
 regret among the worst 5% of sent alerts. If fewer than 100 alerts exist, report the maximum and
 the mean of the worst five alerts as descriptive statistics; do not claim a stable ES95 estimate.
 
-Why both views are required: moment advantage tests whether messages create average value; regret
-and ES95 expose the asymmetric downside that a binary hit or mean can hide. A production threshold
-for ES95 needs the bank's loss/trust appetite and transfer-check distribution; it should not be
-invented from public CBR data.
+Why it fits: regret and ES95 expose the asymmetric downside that a binary hit or average benefit can
+hide. A production threshold for ES95 needs the bank's loss/trust appetite and transfer-check
+distribution; it should not be invented from public CBR data.
 
-### Metric 3 — Useful-alert yield under budget
+### Metric 4 — Useful-alert yield
 
 Evaluate the final stream, not each indicator independently:
 
@@ -217,29 +223,46 @@ useful_alerts_per_100_client_weeks =
     100 * sum(a * hit) / eligible_client_weeks
 ```
 
-Maximize this only subject to:
+Maximize this only subject to the other quality gates and the Metric 5 frequency limit. An alert is
+useful only if the final policy sent it and its message-specific truth condition was satisfied.
+
+Why it fits: lift can be maximized by sending one message a year. Useful yield measures how much
+verified customer help the system delivers, while Metric 5 separately measures the attention it
+consumes.
+
+### Metric 5 — Push frequency and budget use
+
+Evaluate every sent push, whether correct or incorrect:
+
+```text
+pushes_per_client_week = sum(a) / eligible_client_weeks
+over_budget_week_rate = weeks_above_limit / eligible_client_weeks
+```
+
+Report mean, median, and p90 pushes per client-week, zero-push weeks, `over_budget_week_rate`, and
+`cluster_rate[d]`, the share of sends whose prior FX send was within `d` days. Apply these rules:
 
 - total customer load (FX plus reserved/known other messages) no more than 2 per week;
 - a pre-registered FX cooldown;
 - `over_budget_week_rate = 0` after orchestration;
-- reporting `cluster_rate[d]`, the share of sends whose prior FX send was within `d` days;
-- the Metric 1 truth gate and Metric 2 value/tail gates.
+- the Metric 1 truth gate, Metric 2 value gate, and Metric 3 tail-risk gate.
 
 Because client subscription data are absent, run scenarios for one and multiple subscribed
 corridors and state the assumed budget left for FX. Do not add per-corridor rates: the organizer
 clarified that the cap is per customer in total.
 
-Why it fits: precision can be maximized by one message a year, while raw signal count rewards spam.
-Useful yield measures how much verified customer help the system delivers from the scarce attention
-budget. Load and cluster rate diagnose fatigue and repeated alerts from one movement.
+Why it fits: two incorrect pushes create zero useful alerts but still consume two communication
+slots. Frequency therefore cannot be inferred from useful yield. Load and cluster rate diagnose
+fatigue and repeated alerts from one movement.
 
-### Metric 4 — Worst-slice out-of-time robustness
+### Stability requirement — Worst out-of-time slice
 
-For every proposed launch corridor, produce predictions only in forward test folds. Compute the
-one-sided 95% lower bound of lift and the lower bound of mean moment advantage in each slice:
+For every proposed launch corridor, produce predictions only in forward test folds. Recalculate all
+five metrics in each slice. At minimum, compute the one-sided 95% lower bound of lift and the lower
+bound of mean moment advantage:
 
 ```text
-robust_lift_floor = min over launch slices LCB95(lift@budget)
+robust_lift_floor = min over launch slices LCB95(lift)
 value_pass_rate = share of launch slices with LCB95(mean moment_advantage_bp) > 0
 ```
 
@@ -261,7 +284,7 @@ makes the meaning of “stable” auditable rather than relying on a pooled aver
 4. Within each training fold, choose the threshold that maximizes useful-alert yield while meeting
    truth, value, tail, and load constraints. Never tune the threshold on its test fold.
 5. Merge indicators into the final cross-corridor stream, deduplicate the same market episode,
-   apply cooldown, then compute all four metrics.
+   apply cooldown, then compute all five metrics.
 6. Use moving-block bootstrap intervals because nearby FX observations and alerts are dependent.
    Report the block rule, number of independent alert episodes, and raw send count.
 7. Keep a final untouched OOT period. If many rule variants are compared, either correct for
@@ -272,7 +295,7 @@ makes the meaning of “stable” auditable rather than relying on a pooled aver
 
 ## 7. Offline-to-online boundary
 
-The four metrics above decide whether the signal layer deserves a pilot. They cannot prove that a
+The five metrics above decide whether the signal layer deserves a pilot. They cannot prove that a
 push causes additional bank volume.
 
 The pilot should randomize eligible customer-event opportunities into send and holdout, with a

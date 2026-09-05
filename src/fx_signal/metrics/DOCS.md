@@ -1,3 +1,5 @@
+# TODO: сделать одну метрику
+
 # Metrics for the FX transfer signal
 
 ## What we need to measure
@@ -6,12 +8,13 @@ The model decides whether the bank should tell a customer that the current excha
 interesting. A wrong message is more harmful than a missed message: the customer may transfer
 money, see a better rate soon afterwards, and stop trusting the bank's notifications.
 
-Four offline metrics:
+Five offline metrics:
 
 1. **Lift:** how often our message is correct compared with a random day.
-2. **Customer value and regret:** how much money the customer could gain or lose.
-3. **Useful signals per week:** whether we produce enough good messages without sending too many.
-4. **Stability:** whether the results remain good in new time periods and different currencies.
+2. **Customer value:** how much better the selected moment is than surrounding days.
+3. **Customer regret:** how costly our worst incorrect messages are.
+4. **Useful signals per week:** whether the system produces enough correct messages to be useful.
+5. **Push frequency:** how many messages customers receive and whether they arrive in bursts.
 
 These metrics should be shown together. For example, a model with high lift is still unsafe if its
 rare mistakes are very expensive for customers.
@@ -112,12 +115,10 @@ Every result should show:
 A high lift based on five messages is much less convincing than the same lift based on hundreds of
 messages.
 
-## Metric 2: customer value and regret (CVaR)
+## Metric 2: customer value
 
-Lift counts only whether a message was correct. It treats a tiny error and a very expensive error
-as the same false positive. We must also measure the size of the difference in basis points.
-
-### Average value of the selected moment
+Lift counts only whether a message was correct. Customer value measures the size of the benefit in
+basis points.
 
 Compare the rate on the signal day with the average rate around that day:
 
@@ -130,13 +131,15 @@ A positive result means the signal selected a better-than-average moment. The av
 all sent messages should be greater than zero, with a confidence interval that does not include
 zero.
 
-### Customer regret after a message
+## Metric 3: customer regret (tail loss / CVaR)
+
+Customer value and regret are separate metrics. Value measures the usual benefit; regret measures
+the cost of a mistake after the bank encouraged the customer to transfer.
 
 Compare the signal-day rate with the best rate that appeared during the next `h` observations:
 
 ```text
-regret in bp =
-    10,000 * max(signal-day rate / best later rate - 1, 0)
+regret in bp = 10,000 * max(signal-day rate / best later rate - 1, 0)
 ```
 
 Suppose a customer transfers ₽100,000 after our message:
@@ -145,16 +148,17 @@ Suppose a customer transfers ₽100,000 after our message:
 - a 300 bp worse rate is approximately a ₽3,000 difference.
 
 Both are false positives, but the second is clearly more harmful. Report average regret, the worst
-observed regret, and the average of the worst 5% of messages. If there are fewer than 100 messages,
-report the worst five instead of making a strong statistical claim about the worst 5%.
+observed regret, and CVaR: the average regret among the worst 5% of messages. If there are fewer
+than 100 messages, report the worst five instead of making a strong statistical claim about the
+worst 5%.
 
 The bank must decide what level of regret is acceptable using real transfer amounts and its risk
 policy. We cannot choose that limit from public CBR data alone.
 
-## Metric 3: useful signals per week
+## Metric 4: useful signals per week (USpW)
 
 Lift can be made very high by sending only one message per year. That would not create a useful
-product. Sending every day would create the opposite problem: notification fatigue.
+product. This metric measures the amount of useful output, not the total notification load.
 
 Measure how many correct messages the final system produces:
 
@@ -163,16 +167,35 @@ useful signals per 100 customer-weeks =
     100 * correct sent messages / eligible customer-weeks
 ```
 
-Use this metric only while the following rules are satisfied:
+Use this metric only while lift, customer value, customer regret, and the push-frequency limit all
+pass. A signal counts as useful only when it was actually sent and its message-specific test was
+correct.
+
+## Metric 5: push frequency
+
+Useful signals and push frequency are different. A week with two correct pushes has two useful
+signals and two total pushes. A week with two incorrect pushes has zero useful signals but still has
+two total pushes and still consumes the customer's attention.
+
+```text
+pushes per customer-week =
+    all sent messages / eligible customer-weeks
+```
+
+Report:
+
+- average, median, and 90th-percentile pushes per customer-week;
+- percentage of customer-weeks above the allowed limit;
+- percentage of weeks with no FX message;
+- percentage of pushes sent within the cooldown period after an earlier FX push;
+- the number of repeated signals removed from the same market movement.
+
+The final policy should satisfy these rules:
 
 - no customer receives more than two total bank notifications per week;
 - only part of that total budget is reserved for FX messages;
 - repeated signals from the same market movement are merged;
-- a cooldown prevents messages from arriving too close together;
-- lift and customer-value requirements still pass.
-
-Also report the average number of FX messages per week, the percentage of weeks with no message,
-and the percentage of messages sent within the cooldown period after a previous message.
+- a cooldown prevents messages from arriving too close together.
 
 The 1–2 message limit applies to each customer across all currencies and all bank communication. It
 does not mean 1–2 messages for every currency.
@@ -181,17 +204,21 @@ Because the project has no customer data, calculate this metric for several simp
 as a customer interested in one corridor and a customer interested in several corridors. Clearly
 state how much of the weekly notification budget is assumed to be available for FX.
 
-## Metric 4: stability
+## Stability requirement
 
 A model may work well on average while failing for one currency or one market period. To detect
 this, evaluate it separately on future time periods that were not used to choose its parameters.
 
-For every message type, horizon, currency, and test period, report lift and customer value. Then
-show:
+Stability is not a sixth metric. It means recalculating all five metrics for different currencies
+and future test periods instead of trusting one full-history average.
+
+For every message type, horizon, currency, and test period, report all five metrics. Then show:
 
 - the weakest lift result among currencies and test periods;
 - the typical result, such as the median;
 - how many test periods have customer value confidently above zero;
+- whether tail regret stays within the agreed safety limit;
+- whether message frequency remains practical;
 - the number of messages behind every result.
 
 Do not hide a failing currency inside an average across all currencies. If a rule works for KZT but
@@ -205,14 +232,14 @@ not TJS, launch it only for KZT or calibrate a separate TJS rule.
 3. Leave at least `h` observations between training labels and a test period when necessary, so
    future information cannot cross the boundary.
 4. Choose model parameters and the send threshold using training data only.
-5. Combine all indicators into the final message stream before calculating the four metrics.
+5. Combine all indicators into the final message stream before calculating the five metrics.
 6. Keep one final time period completely untouched until model selection is finished.
 7. Calculate results separately by message, horizon, currency, and test period before showing any
    combined average.
 
 ## Metrics for a real customer pilot
 
-The four offline metrics tell us whether the market signal is good enough to test. They cannot tell
+The five offline metrics tell us whether the market signal is good enough to test. They cannot tell
 us whether the notification causes more transfers.
 
 For the pilot, randomly assign eligible customers or customer-events to two groups:
@@ -236,7 +263,8 @@ No baseline indicator is ready for launch yet. The current `h = 3` results show 
 about `3.00–3.32` and level lift of about `1.44–1.90` across five corridors, but they use the wrong
 symmetric target, the whole history, and no confidence intervals.
 
-The next step is to create message-specific targets and recompute lift, customer value, useful
-signals per week, and stability using walk-forward test periods.
+The next step is to create message-specific targets and recompute lift, customer value, customer
+regret, useful signals per week, and push frequency. Check the stability of all five using
+walk-forward test periods.
 
 The supporting research and sources are in [`RESEARCH.md`](RESEARCH.md).

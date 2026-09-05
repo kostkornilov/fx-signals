@@ -8,16 +8,14 @@ import numpy as np
 import pandas as pd
 import yaml
 
+from fx_signal.backtest import walk_forward_predictions
 from fx_signal.data import load_rates, load_yaml
-from fx_signal.evaluation import evaluate_method
 from fx_signal.explain import add_explanations
 from fx_signal.features import add_features, columns_for_groups
-from fx_signal.models import fit_scorer, select_threshold
+from fx_signal.metrics import evaluate_method
 from fx_signal.splits import (
     make_walk_forward_folds,
     mask_test,
-    mask_train,
-    mask_val,
 )
 from fx_signal.targets import add_targets, target_column
 
@@ -93,41 +91,22 @@ def _walk_forward_model(
     folds,
     config: dict,
 ) -> tuple[pd.Series, pd.Series, dict[str, float]]:
-    proba = pd.Series(np.nan, index=frame.index, dtype=float)
-    signal = pd.Series(False, index=frame.index)
-    thresholds: dict[str, float] = {}
     grid = [float(value) for value in config.get("thresholds", [0.6, 0.7, 0.8, 0.9])]
     quantiles = [float(value) for value in config.get("quantile_rates", [0.10, 0.15, 0.20])]
     min_spw, max_spw = config.get("target_signals_per_week", [0.8, 2.5])
-    for fold in folds:
-        train = frame.loc[mask_train(frame, fold, horizon)].dropna(subset=[target_col])
-        val = frame.loc[mask_val(frame, fold)].dropna(subset=[target_col, f"forward_mean_h{horizon}"])
-        test = frame.loc[mask_test(frame, fold)]
-        if train.empty or train[target_col].nunique() < 2 or test.empty:
-            continue
-        scorer = fit_scorer(
-            train, val, kind=kind, feature_cols=feature_cols, target_col=target_col
-        )
-        if val.empty:
-            threshold = 0.8
-        else:
-            val_proba = scorer.predict_proba(val)
-            threshold = select_threshold(
-                val,
-                val_proba,
-                target_col=target_col,
-                horizon=horizon,
-                grid=grid,
-                quantiles=quantiles,
-                min_signals_per_week=float(min_spw),
-                max_signals_per_week=float(max_spw),
-            )
-        test_proba = scorer.predict_proba(test)
-        test_signal = (test_proba >= threshold) & test["has_fact"].fillna(False).to_numpy()
-        proba.loc[test.index] = test_proba
-        signal.loc[test.index] = test_signal
-        thresholds[fold.name] = threshold
-    return proba, signal, thresholds
+    result = walk_forward_predictions(
+        frame,
+        model_kind=kind,
+        feature_cols=feature_cols,
+        target_col=target_col,
+        horizon=horizon,
+        folds=folds,
+        threshold_grid=grid,
+        quantile_rates=quantiles,
+        target_signals_per_week=(float(min_spw), float(max_spw)),
+    )
+    thresholds = dict(zip(result.thresholds["fold"], result.thresholds["threshold"], strict=True))
+    return result.scores, result.signals.fillna(False).astype(bool), thresholds
 
 
 def _split_frame(frame: pd.DataFrame, folds, split: str) -> pd.DataFrame:
