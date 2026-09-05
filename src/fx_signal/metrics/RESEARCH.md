@@ -114,9 +114,10 @@ The recommended scorecard has five primary lines:
 5. push frequency and budget use.
 
 These cover truth, average benefit, magnitude of harm, useful output, and attention cost. Stability
-is an evaluation requirement applied to all five metrics, not a separate metric. No weighted single
-“mega-score” is recommended: arbitrary weights could allow excellent volume to compensate for
-customer harm. Use constraints and Pareto comparison instead.
+is an evaluation requirement applied to all five metrics, not a separate metric. A weighted score
+can help rank models that pass the five hard gates, but it must not let high lift compensate for a
+frequency-policy violation or unacceptable customer harm. Section 9 develops such a secondary
+ranking score, Lift-at-Risk.
 
 ### Metrics rejected as primary
 
@@ -317,3 +318,259 @@ Qini/profit-uplift curves become relevant only after randomized treatment/contro
 - event volume needed for a powered clustered randomized pilot.
 
 Until these exist, CBR-based benefit and regret are proxy metrics and must be labelled as such.
+
+## 9. Research for one integrated metric: Lift-at-Risk
+
+### 9.1 What the integrated metric should and should not do
+
+The case explicitly permits an integral metric for comparing fast and slow indicators, but keeps
+lift, positive bp benefit, frequency, clustering, stability, and absence of leakage as separate
+conditions. The organizer also clarified that lift is based on hit rate while bp benefit is a
+separate mandatory condition. Therefore one scalar is useful for **ranking feasible policies**, not
+for making unsafe policies look acceptable.
+
+The desired scalar should have these properties:
+
+- preserve the authors' definition of lift and its random-day comparator;
+- reward larger customer benefit, not merely binary hits;
+- penalize severe regret more than ordinary variation;
+- have a neutral random-policy value of 1;
+- support both a transparent fixed window and a customer-behavior-weighted window;
+- be comparable only when horizon, message, corridor, randomization rules, and policy parameters
+  are held fixed;
+- leave notification frequency, minimum sample size, and absolute harm limits as hard gates.
+
+“Lift-at-Risk” (`LAR`) is a project-specific name. The exact composite below is a proposal, not an
+established financial statistic.
+
+### 9.2 Similar approaches
+
+**Mean--CVaR optimization in finance.** Portfolio optimization commonly balances expected return
+against CVaR/expected shortfall. Rockafellar and Uryasev developed CVaR as an optimizable tail-loss
+measure, and their work on general loss distributions covers empirical/discrete samples
+([Rockafellar and Uryasev, 2000](https://doi.org/10.21314/jor.2000.038);
+[Rockafellar and Uryasev, 2002](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=267256)).
+The analogy here is useful but limited: an FX push is not a self-financing trade. We borrow the
+expected-benefit minus tail-risk structure, not portfolio-return claims.
+
+**Decision-curve net benefit.** Decision-curve analysis converts false-positive harm into the same
+units as true-positive benefit and evaluates a policy at an action threshold. Its main lesson is
+that an integrated metric needs an explicit, externally justified exchange rate between benefit
+and harm; that exchange rate cannot be discovered from classification accuracy alone
+([Vickers and Elkin, 2006](https://pmc.ncbi.nlm.nih.gov/articles/PMC2577036/)). This supports an
+explicit regret-aversion parameter rather than a hidden arbitrary weight.
+
+**Discounted gain in information retrieval.** Discounted cumulative gain gives less credit to
+relevant results reached later in a ranked list
+([Järvelin and Kekäläinen, 2002](https://doi.org/10.1145/582415.582418)). Time after a push is
+similar to rank in one narrow respect: later outcomes can be less relevant to a customer decision.
+However, the common logarithmic rank discount has no behavioral meaning for transfers, so it should
+not be copied directly.
+
+**Long-horizon push optimization.** Push research shows why an immediate-response objective is
+incomplete: repeated or irrelevant notifications can damage future behavior. A model-based system
+tested at Twitter sent fewer notifications with a higher open rate while maintaining engagement
+([O'Brien et al., 2022](https://arxiv.org/abs/2202.08812)). This supports using the final,
+budgeted push policy in evaluation, but it does not supply a universal FX discount rate.
+
+**Survival/hazard weighting.** If transactions arrive with a constant rate `lambda`, the waiting
+time to the next transaction has survival probability `S(t) = exp(-lambda*t)` and mean
+`1/lambda`. This is the standard exponential inter-arrival model
+([NIST Engineering Statistics Handbook](https://www.itl.nist.gov/div898/handbook/apr/section1/apr161.htm)).
+It supplies a defensible first discount curve from transaction frequency. The constant-hazard
+assumption is only a fallback: salary dates, recipient requests, seasonality, and customer
+heterogeneity make real remittances non-memoryless.
+
+Public remittance evidence supports using monthly and two-month scenarios, but not one universal
+number. A World Bank survey of returned migrants reported 38.7% remitting monthly and 36.6% every
+two months across six countries; the corresponding monthly figures were 19.7% for the Kyrgyz
+Republic and 24.3% for Tajikistan. The report explicitly warns that its network/snowball sample is
+not representative
+([World Bank survey report, pp. 12--15](https://documents1.worldbank.org/curated/en/635911468252622201/pdf/531060NWP0Remi10Box345597B01PUBLIC1.pdf)).
+These old survey values are reasonable sensitivity scenarios only. They are not estimates for the
+bank's app users.
+
+### 9.3 Candidate composite forms
+
+Several simple forms were considered.
+
+1. `lift * value / regret` is easy to explain but unstable when value or regret is near zero. It
+   becomes infinite for a small sample with no observed regret.
+2. `lift + alpha*value - beta*regret` mixes a ratio with basis points and changes if value is
+   expressed in percent instead of bp.
+3. Replacing the binary hit with a weighted fraction of favorable future days is smooth, but it is
+   no longer the lift defined by the case authors.
+4. `value - rho*CVaR(regret)` follows mean--CVaR logic, but discards the required truth comparison
+   with a random day.
+5. A log-additive score preserves lift and adds bp utility after explicit normalization:
+
+```text
+log(LAR) = log(lift) + incremental_risk_adjusted_value_bp / B
+```
+
+This fifth form is retained. Exponentiating keeps the published score positive and centered at 1.
+It is monotone in lift and value, monotone decreasing in regret, and has no division by a noisy
+near-zero regret estimate.
+
+### 9.4 Common path quantities
+
+For a signal at `t`, let `p[t]` be RUB per unit of recipient currency and let `p[t+j]` be the rate at
+the `j`th later observation. Lower is better. For every `j = 1...h`, define:
+
+```text
+advantage_bp[t,j] = 10,000 * (p[t+j] / p[t] - 1)
+
+loss_bp[t,j] = 10,000 * max(p[t] / p[t+j] - 1, 0)
+```
+
+`advantage_bp` is signed: positive means sending at `t` was better than waiting until `t+j`.
+`loss_bp` is non-negative regret. The two formulas use different denominators deliberately and are
+consistent with the existing value and regret definitions.
+
+For non-negative relevance factors `d[j]`, define normalized value weights
+`w[j] = d[j] / sum(d[1:h])`. A single signal then has:
+
+```text
+path_value_bp[t]  = sum(w[j] * advantage_bp[t,j])
+path_regret_bp[t] = max(d[j] * loss_bp[t,j])
+```
+
+Value represents the typical waiting comparison. Regret deliberately keeps the worst relevant
+later opportunity; averaging it could hide one large harmful miss. Across all sent messages:
+
+```text
+V = mean(path_value_bp)
+R = CVaR95(path_regret_bp)
+```
+
+When fewer than 100 signals exist, `R` is too weakly estimated for a strong 5%-tail claim. Report
+the maximum and worst-five mean alongside it.
+
+### 9.5 Compare against a matched random policy
+
+Absolute value is not enough. A rising or falling market can make all dates look favorable or
+unfavorable. Generate random policies with the same corridor, fold, number of sends, eligible
+calendar, cooldown, and weekly budget as the tested policy. Calculate the same quantities for the
+signal (`V_s`, `R_s`) and random comparator (`V_0`, `R_0`):
+
+For `M` random streams, define `V_0` as the mean of their `M` mean path values and `R_0` as the
+mean of their `M` separately calculated CVaR values. Likewise, random hit rate is the mean hit rate
+across streams. Do not pool all random messages before calculating CVaR: pooling answers a
+different question and understates variation between feasible random policies.
+
+```text
+DeltaU_bp = (V_s - V_0) - rho * (R_s - R_0)
+```
+
+`rho >= 0` is regret aversion: how many bp of mean value the bank requires to accept one additional
+bp of tail regret. Because the case says a bad message is worse than silence, `rho` should not be
+silently set below 1. Use a pre-declared sensitivity range until the bank sets it.
+
+The proposed score is:
+
+```text
+Lift_at_Risk = lift * exp(DeltaU_bp / B)
+```
+
+`B > 0` is the bp scale that determines how strongly economics adjusts lift. A matched random
+policy has `lift = 1` and `DeltaU_bp = 0`, hence `LAR = 1`. A policy with better tail risk than
+random receives a positive contribution because `R_s - R_0` is negative.
+
+This formula does intentionally count both truth and magnitude. Lift answers how often the stated
+claim holds; `DeltaU` answers how large the customer consequence is. Correlation between them is
+expected, so uncertainty must be calculated for the complete score rather than by treating the
+components as independent.
+
+### 9.6 Variant A: fixed-window Lift-at-Risk (`LAR-F`)
+
+Set:
+
+```text
+d[j] = 1
+w[j] = 1/h
+```
+
+All next `h` observations matter equally. The per-message regret becomes the existing worst price
+miss in the window. This variant is transparent, needs no customer behavior data, and should be the
+default for the current hackathon backtest.
+
+Its limitation is behavioral: a rate 20 days later is treated as equally relevant as tomorrow's
+rate even if most customers would already have transferred.
+
+### 9.7 Variant B: time-discounted Lift-at-Risk (`LAR-D`)
+
+Let `Delta[j]` be elapsed **calendar time** from the push to later observation `j`, and let `S(t)` be
+the probability that an eligible customer has not yet made the next transfer by time `t`. Set:
+
+```text
+d[j] = S(Delta[j]) / S(Delta[1])
+w[j] = d[j] / sum(d[1:h])
+```
+
+The first observable alternative receives weight 1; later alternatives receive less weight.
+Normalizing only the value weights keeps value in bp. Regret uses the unnormalized `d[j]`, so a
+large miss tomorrow is not diluted merely because `h` is large.
+
+Preferred production estimate: build an empirical survival curve from pre-treatment or holdout
+customer data, starting at a clearly defined eligible moment, with right censoring. Estimate by
+corridor and meaningful cohorts, shrinking sparse cohorts toward a global curve. This accounts for
+payday and calendar effects without forcing a constant hazard.
+
+Fallback when only a global transaction frequency is available:
+
+```text
+lambda = transactions / active eligible customer-days
+T = 1 / lambda                         # mean inter-transaction time
+d[j] = exp(-(Delta[j] - Delta[1]) / T)
+```
+
+The denominator must be active eligible customer-days, not population size or total calendar days.
+Aggregate corridor volume alone cannot recover a per-customer waiting-time distribution.
+
+For an illustrative monthly customer (`T = 30` days), the daily discount factor is about `0.967`
+and the half-life is about `20.8` days. Relative to day 1, day 20 has weight about `0.53`. For a
+two-month customer (`T = 60`), day 20 has weight about `0.73`. Thus a frequency-based discount makes
+little difference at `h = 3/5` but can materially change `h = 20`.
+
+Use calendar time for this discount even though the rate horizon is expressed in fresh
+publications. Customers can transfer while no new CBR observation is published. With current proxy
+data, use actual elapsed days between publications; with bank data, use executable quote time.
+
+`LAR-D` reduces exactly to `LAR-F` when `lambda = 0`, and both variants are identical at `h = 1`.
+
+### 9.8 Calibrating the two policy weights
+
+Neither `rho` nor `B` should be tuned to maximize the final OOT result.
+
+- Set `rho` from customer-risk policy or show at least `rho = 1, 2, 3`. `rho = 2` means one extra bp
+  of tail regret requires two bp of incremental mean value.
+- Set `B` using a stated materiality trade-off. If the bank says `U*` bp of incremental
+  risk-adjusted value is as important as improving lift from `1.0` to `1.3`, use:
+
+```text
+B = U* / log(1.3)
+```
+
+For example, if `U* = 100 bp`, then `B` is about `381 bp`; a `+100 bp` `DeltaU` multiplies LAR by
+`1.3`, and `-100 bp` divides it by `1.3`. The same choice can be made in RUB using a reference
+transfer amount, but the amount and acceptable customer loss must come from the bank.
+
+### 9.9 How to use and validate LAR
+
+1. Apply the final deduplication, cooldown, and notification budget before scoring.
+2. Require the original hard gates: authors' lift, statistically positive symmetric-window value,
+   absolute regret cap, 1--2 signals per corridor-week, sample size, and walk-forward stability.
+3. Among policies that pass, maximize the worst-corridor/worst-fold `LAR-F`; report median as
+   secondary. A pooled mean must not hide a failing slice.
+4. Report `LAR-D` as sensitivity analysis until a customer waiting-time curve is available. Then
+   promote it only if rankings are stable across cohorts and discount estimates.
+5. Use the same matched random draws for lift, value, and regret so the comparator is internally
+   consistent.
+6. Obtain confidence intervals by block-bootstrap resampling whole market episodes or weeks and
+   recomputing lift, `V`, `R`, the random comparator, and LAR together.
+7. Publish the components next to the scalar: signal count, hit rate, random hit rate, lift, `V_s`,
+   `V_0`, `R_s`, `R_0`, `rho`, `B`, discount source, and LAR.
+
+The main failure mode is false precision. `LAR = 1.27` is not meaningful unless the policy weights,
+random comparator, sample size, and uncertainty interval are visible. The scalar makes trade-offs
+consistent; it does not make the trade-offs objective.

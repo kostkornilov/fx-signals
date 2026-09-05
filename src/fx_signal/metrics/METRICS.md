@@ -123,8 +123,7 @@ basis points.
 Compare the rate on the signal day with the average rate around that day:
 
 ```text
-moment advantage in bp =
-    10,000 * (average surrounding rate / signal-day rate - 1)
+moment advantage in bp = 10,000 * (average surrounding rate / signal-day rate - 1)
 ```
 
 A positive result means the signal selected a better-than-average moment. The average result across
