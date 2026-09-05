@@ -5,8 +5,8 @@ from pathlib import Path
 import pandas as pd
 
 from fx_signal.data import load_rates, load_yaml
-from fx_signal.evaluation import evaluate_lift
 from fx_signal.indicators import add_baseline_indicators
+from fx_signal.metrics.lift import evaluate_lift
 from fx_signal.targets import add_local_min_target
 
 

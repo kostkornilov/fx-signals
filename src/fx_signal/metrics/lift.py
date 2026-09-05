@@ -9,10 +9,11 @@ INDICATORS = ("momentum", "reversal", "seasonality", "level")
 def evaluate_lift(
     frame: pd.DataFrame, horizon: int = 3, indicators: tuple[str, ...] = INDICATORS
 ) -> pd.DataFrame:
+    """Calculate per-currency lift for each FX timing signal."""
     target_col = f"target_local_min_h{horizon}"
     required = [target_col, *(f"signal_{name}" for name in indicators)]
     eligible = frame.dropna(subset=required).copy()
-    rows: list[dict] = []
+    rows: list[dict[str, object]] = []
 
     for currency, group in eligible.groupby("currency"):
         target = group[target_col].astype(bool)
@@ -33,7 +34,11 @@ def evaluate_lift(
                     "random_hit_rate": random_hit_rate,
                     "lift": signal_hit_rate / random_hit_rate if signal_count else np.nan,
                     "signals_per_week": signal_count
-                    / max((group["effective_date"].max() - group["effective_date"].min()).days / 7, 1),
+                    / max(
+                        (group["effective_date"].max() - group["effective_date"].min()).days
+                        / 7,
+                        1,
+                    ),
                 }
             )
     return pd.DataFrame(rows)
