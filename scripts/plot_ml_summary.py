@@ -153,10 +153,7 @@ def save_requirements_gate(data: pd.DataFrame, diagnostics: pd.DataFrame, horizo
     work["Выгода момента > 0\n(нижняя граница 95% CI)"] = work["moment_advantage_bps_ci_low"] > 0
     work["Частота 1–2 сигнала\nв неделю"] = work["signals_per_week"].between(1, 2)
     columns = list(work.columns[-3:])
-    work["Все три требования\nодновременно"] = work[columns].all(axis=1)
-    columns.append("Все три требования\nодновременно")
-    share = work.groupby("Метод")[columns].mean().mul(100)
-    share = share.reindex(share["Все три требования\nодновременно"].sort_values().index)
+    share = work.groupby("Метод")[columns].mean().mul(100).sort_values(columns[0])
     fig, axis = plt.subplots(figsize=(12, 8))
     sns.heatmap(
         share,
@@ -181,8 +178,7 @@ def save_requirements_gate(data: pd.DataFrame, diagnostics: pd.DataFrame, horizo
     fig.text(
         0.5,
         -0.04,
-        "Неопределённая метрика считается непройденным требованием: отсутствие сигналов не является доказательством качества.\n"
-        "Требования проверяются одновременно, поэтому последний столбец не равен произведению первых трёх.",
+        "Неопределённая метрика считается непройденным требованием: отсутствие сигналов не является доказательством качества.",
         ha="center",
         fontsize=9,
     )
@@ -239,6 +235,55 @@ def save_feature_ladder(data: pd.DataFrame, horizon: int) -> None:
     plt.close(fig)
 
 
+def save_lar_ranking(data: pd.DataFrame, diagnostics: pd.DataFrame, horizon: int) -> None:
+    """LAR ранжирует модели, поэтому показываем каждый коридор с интервалом, а не одно среднее."""
+    keys = ["experiment", "currency", "fold", "evaluation_horizon"]
+    bounds = ["lift_at_risk_ci_low", "lift_at_risk_ci_high"]
+    work = horizon_slice(data, horizon).merge(diagnostics[keys + bounds], on=keys, how="left")
+    work = work[work["fold"] == "oot"].copy()
+    work["Коридор"] = work["corridor"].str.replace("RUB->", "RUB→", regex=False)
+    floor = 0.02
+    for column in ["lift_at_risk"] + bounds:
+        work[column] = work[column].clip(lower=floor)
+    order = list(work.groupby("Метод")["lift_at_risk"].median().sort_values().index)
+    corridors = sorted(work["Коридор"].unique())
+    offsets = np.linspace(-0.3, 0.3, len(corridors))
+    palette = dict(zip(corridors, sns.color_palette("colorblind", len(corridors)), strict=True))
+    fig, axis = plt.subplots(figsize=(12, 9))
+    for corridor, offset in zip(corridors, offsets, strict=True):
+        part = work[work["Коридор"] == corridor]
+        position = [order.index(name) + offset for name in part["Метод"]]
+        axis.hlines(position, part[bounds[0]], part[bounds[1]], color=palette[corridor],
+                    linewidth=1.3, alpha=0.7)
+        axis.scatter(part["lift_at_risk"], position, color=palette[corridor], s=36,
+                     zorder=3, label=corridor)
+    axis.axvline(1.0, color="#333333", linestyle="--", linewidth=1.4)
+    axis.set_xscale("log")
+    axis.set_yticks(range(len(order)))
+    axis.set_yticklabels(order)
+    axis.set_ylim(-0.7, len(order) - 0.3)
+    axis.set_xlabel("Lift-at-Risk (fixed), логарифмическая шкала")
+    axis.set_title(
+        f"Lift-at-Risk по коридорам, final OOT (сен. 2025 — сен. 2026), h={horizon}\n"
+        "Точка — значение, отрезок — 95% moving-block интервал, пунктир — нейтральная точка 1",
+        fontsize=14,
+        pad=14,
+    )
+    axis.legend(title="Коридор", loc="lower right", fontsize=9)
+    fig.text(
+        0.5,
+        -0.02,
+        "Конфигурации упорядочены по медиане LAR. Отсутствие точки означает, что сигналов не было и метрика не определена; "
+        f"значения ниже {floor} прижаты к левому краю.\n"
+        "LAR служит для ранжирования при одинаковых правилах оценки и не отменяет провал требований к lift, выгоде и частоте.",
+        ha="center",
+        fontsize=9,
+    )
+    fig.tight_layout()
+    fig.savefig(OUTPUT / f"ml_lar_ranking_h{horizon}.png", dpi=180, bbox_inches="tight")
+    plt.close(fig)
+
+
 def main() -> None:
     sns.set_theme(style="whitegrid", font="DejaVu Sans")
     OUTPUT.mkdir(parents=True, exist_ok=True)
@@ -251,6 +296,7 @@ def main() -> None:
     for horizon in sorted(data["evaluation_horizon"].unique()):
         save_requirements_gate(data, diagnostics, horizon)
         save_feature_ladder(data, horizon)
+        save_lar_ranking(data, diagnostics, horizon)
 
 
 if __name__ == "__main__":
