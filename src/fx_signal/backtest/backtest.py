@@ -11,7 +11,7 @@ from fx_signal.metrics import (
     evaluate_method,
     summarize_stability,
 )
-from fx_signal.models import fit_scorer, select_threshold
+from fx_signal.models import RankingMetric, fit_scorer, select_threshold
 from fx_signal.splits import (
     WalkForwardFold,
     assert_no_overlap,
@@ -124,6 +124,7 @@ def walk_forward_predictions(
     quantile_rates: Iterable[float] = (0.10, 0.15, 0.20),
     target_signals_per_week: tuple[float, float] = (0.8, 2.5),
     default_threshold: float = 0.8,
+    ranking_metric: RankingMetric = "lar",
 ) -> WalkForwardPredictions:
     """Fit on past data and predict each later test window exactly once.
 
@@ -203,6 +204,7 @@ def walk_forward_predictions(
                 quantiles=quantiles,
                 min_signals_per_week=min_signals,
                 max_signals_per_week=max_signals,
+                ranking_metric=ranking_metric,
             )
 
         test_scores = scorer.predict_proba(test)
@@ -255,6 +257,7 @@ def run_walk_forward_backtest(
     default_threshold: float = 0.8,
     weekly_limit: int = 2,
     cooldown_days: int = 3,
+    ranking_metric: RankingMetric = "lar",
 ) -> BacktestResult:
     """Run the model and calculate all five product metrics per fold/corridor."""
     predictions = walk_forward_predictions(
@@ -270,6 +273,7 @@ def run_walk_forward_backtest(
         quantile_rates=quantile_rates,
         target_signals_per_week=target_signals_per_week,
         default_threshold=default_threshold,
+        ranking_metric=ranking_metric,
     )
     scored = frame.copy()
     scored["backtest_score"] = predictions.scores

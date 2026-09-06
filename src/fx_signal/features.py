@@ -7,7 +7,13 @@ import numpy as np
 import pandas as pd
 
 from fx_signal.external import safe_series_name
-from fx_signal.indicators import COUNTRY_BY_CURRENCY, add_baseline_indicators
+from fx_signal.indicators import (
+    ALL_SIGNAL_COLUMNS,
+    COUNTRY_BY_CURRENCY,
+    RESEARCH_SIGNAL_COLUMNS,
+    add_baseline_indicators,
+    add_research_indicators,
+)
 
 GROUP_A = (
     "signal_momentum",
@@ -199,6 +205,8 @@ def add_features(
             reversal_window=reversal_window,
             holiday_lookahead_days=holiday_lookahead_days,
         )
+    if RESEARCH_SIGNAL_COLUMNS[0] not in rates.columns:
+        rates = add_research_indicators(rates)
     frames = [
         _corridor_features(
             group, level_window=level_window, reversal_window=reversal_window
@@ -236,7 +244,7 @@ def add_features(
     if external is not None and not external.empty:
         aligned_external = _align_external(result, external)
         result = result.merge(aligned_external, on="effective_date", how="left")
-    facts = result[list(GROUP_A)].astype("boolean")
+    facts = result[list(ALL_SIGNAL_COLUMNS)].astype("boolean")
     result["has_fact"] = facts.fillna(False).any(axis=1)
     return result
 

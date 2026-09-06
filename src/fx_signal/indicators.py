@@ -283,7 +283,8 @@ def add_research_indicators(
     Gain and loss thresholds are decimal fractions. Their zero defaults expose the raw signal
     direction for research; production thresholds must be calibrated per corridor. Effect columns
     are also decimal fractions: positive means more recipient currency and negative means less.
-    The research signals are not added to the model feature groups.
+    The research signals are allowed as send-time explanations, but they are not added to
+    the model feature groups.
     """
     required = {"currency", "effective_date", "rub_per_unit"}
     missing = required.difference(rates.columns)

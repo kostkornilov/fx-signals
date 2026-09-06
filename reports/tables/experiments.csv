@@ -1,3 +1,0 @@
-exp_id,git_hash,model,target,horizon,feature_groups,oot_lift,oot_bps,oot_signals_per_week
-logreg_ab,e6f878e,logreg,stay_not_worse,5,"A,B",,,0.0
-ml_summary_h5,e6f878e,matrix,stay_not_worse,5,matrix,0.9934126401329613,39.75610912598017,0.5005586592178771

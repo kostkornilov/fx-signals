@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from fx_signal.models import select_threshold
+from fx_signal.models import RankingMetric, select_threshold
 
 
 def _weekly_frame(
@@ -10,6 +10,7 @@ def _weekly_frame(
     target: np.ndarray,
     proba: np.ndarray,
     days_per_week: int = 1,
+    prices: np.ndarray | None = None,
 ) -> tuple[pd.DataFrame, np.ndarray]:
     mondays = pd.date_range("2024-01-01", periods=n_weeks, freq="W-MON")
     dates: list[pd.Timestamp] = []
@@ -18,19 +19,31 @@ def _weekly_frame(
     n = len(dates)
     if len(target) != n or len(proba) != n:
         raise ValueError("target and proba must match the constructed calendar")
+    price = np.ones(n) if prices is None else prices
+    if len(price) != n:
+        raise ValueError("prices must match the constructed calendar")
+    forward_mean = np.roll(price, -5) if prices is not None else price * 1.01
     frame = pd.DataFrame(
         {
+            "currency": "KZT",
             "effective_date": dates,
             "has_fact": True,
             "stay_not_worse": target,
-            "rub_per_unit": 1.0,
-            "forward_mean_h5": 1.01,
+            "rub_per_unit": price,
+            "forward_mean_h5": forward_mean,
         }
     )
     return frame, proba
 
 
-def _pick(frame: pd.DataFrame, proba: np.ndarray, grid: list[float], *, max_spw: float) -> float:
+def _pick(
+    frame: pd.DataFrame,
+    proba: np.ndarray,
+    grid: list[float],
+    *,
+    max_spw: float,
+    ranking_metric: RankingMetric = "lift",
+) -> float:
     return select_threshold(
         frame,
         proba,
@@ -40,6 +53,7 @@ def _pick(frame: pd.DataFrame, proba: np.ndarray, grid: list[float], *, max_spw:
         quantiles=[],
         min_signals_per_week=0.8,
         max_signals_per_week=max_spw,
+        ranking_metric=ranking_metric,
     )
 
 
@@ -83,3 +97,14 @@ def test_threshold_above_max_frequency_is_dropped() -> None:
         proba=proba,
     )
     assert _pick(frame, proba, [0.9, 0.2], max_spw=2.5) == 0.9
+
+
+def test_lar_threshold_prefers_cheaper_forward_path() -> None:
+    n_weeks = 20
+    target = np.ones(n_weeks, dtype=bool)
+    proba = np.full(n_weeks, 0.4)
+    proba[:10] = 0.9
+    prices = np.concatenate([np.full(10, 1.2), np.full(10, 0.8)])
+    frame, proba = _weekly_frame(n_weeks=n_weeks, target=target, proba=proba, prices=prices)
+    # Lift is 1 at both thresholds; LAR should prefer the cheaper later path (0.4).
+    assert _pick(frame, proba, [0.9, 0.4], max_spw=2.5, ranking_metric="lar") == 0.4
