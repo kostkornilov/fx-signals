@@ -293,7 +293,6 @@ def render_report(metrics: pd.DataFrame, config: dict, git_hash: str) -> str:
             "cluster_rate": "Кучность", "valid_slices": "Срезов", "status": "Статус",
         }
     )[["Метод", "OOS lift", "Worst lift", "Срезы ≥1.3", "OOS LAR", "OOT lift", "OOT LAR", "Сигн./нед.", "Кучность", "Срезов", "Статус"]]
-    passed = int(summary["status"].eq("PASS").sum())
     table_markdown = _markdown_table(table)
     return f"""# Воспроизводимый walk-forward backtest
 
@@ -303,7 +302,6 @@ def render_report(metrics: pd.DataFrame, config: dict, git_hash: str) -> str:
 - Период оценки: с {int(config['first_test_year'])} года по {config['end']}; final OOT начинается {config['oot_start']}.
 - ML обучается на таргете `h={config['training_horizon']}`; тот же поток сигналов проверяется на `h={"/".join(map(str, config['evaluation_horizons']))}`.
 - Для frequency-matched random baseline используется {config.get('baseline_draws', 200)} детерминированных потоков на срез.
-- Кандидатов, прошедших базовый gate (`lift ≥ 1.3`, выгода > 0, частота 1–2/нед.): **{passed}**.
 
 ## Краткая сводка (`h=5`)
 
