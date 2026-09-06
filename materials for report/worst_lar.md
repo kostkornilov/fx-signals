@@ -34,4 +34,4 @@ LAR на h=5 определён не во всех пяти коридорах, 
 - CatBoost (A,B)
 - LogReg (A,B,C,D)
 
-Источник: `reports/tables/ml_summary.csv`.
+Источник: `reports/tables/ml_summary_lar.csv`.

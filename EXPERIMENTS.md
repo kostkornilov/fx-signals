@@ -26,13 +26,13 @@
 
 Группа D — внешний валютный контекст. Для USD, EUR и CNY рассчитываются изменения за 1 и 5 публикаций, положение в собственном 90-публикационном диапазоне и волатильность за 20 публикаций. `residual_usd_1` равен однопериодному изменению валюты коридора минус однопериодное изменение USD. Идея группы — отделить специфическое движение драма, тенге, сома, сомони или сума от общего движения рубля и крупных валют. Эти признаки появляются только при наличии отдельного файла контекстных курсов.
 
-Группа E — календарные признаки `month` и `weekday`, то есть номер месяца и дня недели. Код умеет их рассчитывать, но текущая матрица `ml_summary.csv` группу E не проверяет, поэтому выводов о её полезности по проведённым экспериментам нет.
+Группа E — календарные признаки `month` и `weekday`, то есть номер месяца и дня недели. Код умеет их рассчитывать, но текущие OOT-сводки группу E не проверяют, поэтому выводов о её полезности по проведённым экспериментам нет.
 
-В основной конфигурации указаны группы A+B. В матричном эксперименте проверены LogReg и CatBoost на всех четырёх ступенях: A, A+B, A+B+C и A+B+C+D. Каноническая таблица [reports/tables/ml_summary.csv](reports/tables/ml_summary.csv) — макросводка Final OOT: одна строка на метод, lift и LAR на горизонтах 1/5/10, частота, кучность, покрытие коридоров. Модели обучены с порогом `LAR × min(signals_per_week, 1)` и фильтром `has_fact` по всем 11 индикаторам; сырые прогоны — [reports/ml_lar_threshold](reports/ml_lar_threshold/). Обозначение ступеней накопительное: `A,B,C` значит объяснимые индикаторы, их силу и техническую динамику сразу. Правила и случайный день признаки не используют. Семь research-флагов не входят в группу A.
+В основной конфигурации указаны группы A+B. В матричном эксперименте проверены LogReg и CatBoost на всех четырёх ступенях: A, A+B, A+B+C и A+B+C+D. Канонические таблицы [reports/tables/ml_summary_lar.csv](reports/tables/ml_summary_lar.csv) и [reports/tables/ml_summary_lift.csv](reports/tables/ml_summary_lift.csv) — макросводка Final OOT: одна строка на метод, lift и LAR на горизонтах 1/5/10, частота, кучность, покрытие коридоров; файлы отличаются только сортировкой (покрытие + LAR или покрытие + lift). Модели обучены с порогом `LAR × min(signals_per_week, 1)` и фильтром `has_fact` по всем 11 индикаторам; сырые прогоны — [reports/ml_lar_threshold](reports/ml_lar_threshold/). Обозначение ступеней накопительное: `A,B,C` значит объяснимые индикаторы, их силу и техническую динамику сразу. Правила и случайный день признаки не используют. Семь research-флагов не входят в группу A.
 
 ## метрики качества
 
-Определения метрик — [src/fx_signal/metrics/MAIN_METRIC.md](src/fx_signal/metrics/MAIN_METRIC.md). Модели обучены на `stay_not_worse` при h=5; каноническая сводка считает lift и LAR на горизонтах 1, 5 и 10. Единица строки в [reports/tables/ml_summary.csv](reports/tables/ml_summary.csv) — метод на Final OOT.
+Определения метрик — [src/fx_signal/metrics/MAIN_METRIC.md](src/fx_signal/metrics/MAIN_METRIC.md). Модели обучены на `stay_not_worse` при h=5; каноническая сводка считает lift и LAR на горизонтах 1, 5 и 10. Единица строки в [reports/tables/ml_summary_lar.csv](reports/tables/ml_summary_lar.csv) и [reports/tables/ml_summary_lift.csv](reports/tables/ml_summary_lift.csv) — метод на Final OOT.
 
 `lift` — отношение hit rate сигнала к hit rate всех доступных дней того же коридора и периода. Попадание всегда `stay_not_worse` без допуска: за следующие h публикаций не появилось курса дешевле сегодняшнего. Значение 1 — уровень случайного дня, 1,3 — ориентир кейса.
 
@@ -76,7 +76,7 @@
 
 ## выводы об эффективности правил vs индикаторов
 
-Канон — Final OOT в [reports/tables/ml_summary.csv](reports/tables/ml_summary.csv). На target `stay_not_worse` ручные правила часто дают LAR > 1.3 за счёт локальной дешевизны относительно ±h, при этом lift остаётся ниже 1. CatBoost (A,B,C,D) — единственная обучаемая конфигурация с lift ≥ 1.3 на h=1/5/10 во всех пяти коридорах (макро lift 1.53 и LAR 1.84 на h=5, частота 0.40). CatBoost A и A+B на этом OOT молчат; LogReg ABCD тоже. Подробные списки — `materials for report/top5_lar.md` и `worst_lar.md`.
+Канон — Final OOT в [reports/tables/ml_summary_lar.csv](reports/tables/ml_summary_lar.csv) и [reports/tables/ml_summary_lift.csv](reports/tables/ml_summary_lift.csv). На target `stay_not_worse` ручные правила часто дают LAR > 1.3 за счёт локальной дешевизны относительно ±h, при этом lift остаётся ниже 1. CatBoost (A,B,C,D) — единственная обучаемая конфигурация с lift ≥ 1.3 на h=1/5/10 во всех пяти коридорах (макро lift 1.53 и LAR 1.84 на h=5, частота 0.40). CatBoost A и A+B на этом OOT молчат; LogReg ABCD тоже. Подробные списки — `materials for report/top5_lar.md` и `worst_lar.md`.
 
 Ранний in-sample baseline локального минимума (`baseline_lift_h*.png`) с этим сравнением смешивать нельзя: там другой target.
 

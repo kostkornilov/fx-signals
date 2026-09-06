@@ -18,20 +18,8 @@ CATBOOST_LABEL = "CatBoost (A,B,C,D)"
 CORRIDOR_ORDER = ["RUB→AMD", "RUB→KGS", "RUB→KZT", "RUB→TJS", "RUB→UZS"]
 
 
-def write_summary() -> pd.DataFrame:
-    wide = pd.read_csv(WIDE_SRC).sort_values(
-        [
-            "n_h5",
-            "lar_h5",
-            "n_h10",
-            "lar_h10",
-            "n_h1",
-            "lar_h1",
-        ],
-        ascending=False,
-        na_position="last",
-    )
-    out = pd.DataFrame(
+def _summary_frame(wide: pd.DataFrame) -> pd.DataFrame:
+    return pd.DataFrame(
         {
             "method": wide["label"],
             "lift_h1": wide["lift_h1"],
@@ -47,9 +35,39 @@ def write_summary() -> pd.DataFrame:
             "corridors_with_lar_h10": wide["n_h10"],
         }
     )
+
+
+def write_summaries() -> tuple[pd.DataFrame, pd.DataFrame]:
+    wide = pd.read_csv(WIDE_SRC)
+    columns = _summary_frame(wide)
+    lar = columns.sort_values(
+        [
+            "corridors_with_lar_h5",
+            "lar_h5",
+            "corridors_with_lar_h10",
+            "lar_h10",
+            "corridors_with_lar_h1",
+            "lar_h1",
+        ],
+        ascending=False,
+        na_position="last",
+    )
+    lift = columns.sort_values(
+        [
+            "corridors_with_lar_h5",
+            "lift_h5",
+            "corridors_with_lar_h10",
+            "lift_h10",
+            "corridors_with_lar_h1",
+            "lift_h1",
+        ],
+        ascending=False,
+        na_position="last",
+    )
     TABLES.mkdir(parents=True, exist_ok=True)
-    out.to_csv(TABLES / "ml_summary.csv", index=False)
-    return out
+    lar.to_csv(TABLES / "ml_summary_lar.csv", index=False)
+    lift.to_csv(TABLES / "ml_summary_lift.csv", index=False)
+    return lar, lift
 
 
 def _corridor_lift() -> pd.DataFrame:
@@ -133,7 +151,7 @@ def save_lift_charts() -> None:
 
 
 def main() -> None:
-    write_summary()
+    write_summaries()
     save_lift_charts()
 
 
