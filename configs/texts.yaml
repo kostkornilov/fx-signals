@@ -1,0 +1,68 @@
+scenarios:
+  - signal: signal_momentum
+    scenario: favourable_momentum
+    direction: recipient_value_up
+    speed: fast
+    push_title: Курс менялся в пользу перевода несколько раз подряд
+    push_body: За ту же сумму в рублях получатель в {currency} сейчас получит примерно на {effect_pct}% больше, чем в начале серии изменений.
+
+  - signal: signal_level
+    scenario: favourable_level
+    direction: recipient_value_up
+    speed: slow
+    push_title: Курс находится в нижней части недавнего диапазона
+    push_body: Текущий курс {currency} достиг нижней части диапазона последних публикаций. Проверьте актуальную сумму перед переводом.
+
+  - signal: signal_seasonality
+    scenario: holiday_context
+    direction: context
+    speed: slow
+    push_title: Приближается праздничный период
+    push_body: В стране получателя скоро праздник. Если вы планировали перевод в {currency}, проверьте текущий курс и сумму получения.
+
+  - signal: signal_better_than_one_year_ago
+    scenario: favourable_year_comparison
+    direction: recipient_value_up
+    speed: slow
+    push_title: За ту же сумму получатель получит больше, чем год назад
+    push_body: По текущему курсу сумма получения в {currency} примерно на {effect_pct}% больше, чем около этой даты год назад.
+
+  - signal: signal_better_range_held
+    scenario: favourable_range_held
+    direction: recipient_value_up
+    speed: slow
+    push_title: Более выгодный диапазон курса удержался
+    push_body: Последние публикации курса {currency} остаются выгоднее предыдущего диапазона примерно на {effect_pct}%.
+
+  - signal: signal_larger_than_usual_latest_improvement
+    scenario: favourable_unusual_move
+    direction: recipient_value_up
+    speed: fast
+    push_title: Последнее изменение курса оказалось заметным
+    push_body: После последней публикации за ту же сумму в рублях получатель в {currency} получает примерно на {effect_pct}% больше.
+
+  - signal: signal_better_than_30_day_average
+    scenario: favourable_30_day_average
+    direction: recipient_value_up
+    speed: slow
+    push_title: Текущий курс лучше среднего за 30 дней
+    push_body: За ту же сумму в рублях получатель в {currency} сейчас получит примерно на {effect_pct}% больше среднего за последние 30 дней.
+
+  - signal: signal_most_recent_changes_favourable
+    scenario: favourable_recent_changes
+    direction: recipient_value_up
+    speed: slow
+    push_title: Большинство последних изменений были в пользу перевода
+    push_body: По сравнению с пятью публикациями назад сумма получения в {currency} выросла примерно на {effect_pct}%.
+
+forbidden:
+  - phrase: Успейте перевести
+    reason: Создаёт искусственную срочность и намекает на будущий рост курса.
+  - phrase: Пока курс не вырос
+    reason: Содержит не подтверждённый данными прогноз будущего курса.
+  - phrase: Лучший курс
+    reason: Нельзя доказать, что текущий курс является глобально лучшим.
+  - phrase: Курс точно вырастет
+    reason: Является гарантией будущего движения рынка.
+  - phrase: Выгодно переводить сейчас
+    reason: Подменяет наблюдаемый факт финансовой рекомендацией.
