@@ -14,6 +14,7 @@ from fx_signal.explain import add_explanations
 from fx_signal.external import load_external_series
 from fx_signal.features import add_features, columns_for_groups
 from fx_signal.metrics import evaluate_method
+from fx_signal.models import RankingMetric
 from fx_signal.splits import (
     make_walk_forward_folds,
     mask_test,
@@ -103,6 +104,10 @@ def _walk_forward_model(
     grid = [float(value) for value in config.get("thresholds", [0.6, 0.7, 0.8, 0.9])]
     quantiles = [float(value) for value in config.get("quantile_rates", [0.10, 0.15, 0.20])]
     min_spw, max_spw = config.get("target_signals_per_week", [0.8, 2.5])
+    metric_name = str(config.get("threshold_metric", "lar"))
+    if metric_name not in ("lift", "lar"):
+        raise ValueError("threshold_metric must be 'lift' or 'lar'")
+    ranking_metric: RankingMetric = "lar" if metric_name == "lar" else "lift"
     result = walk_forward_predictions(
         frame,
         model_kind=kind,
@@ -113,6 +118,7 @@ def _walk_forward_model(
         threshold_grid=grid,
         quantile_rates=quantiles,
         target_signals_per_week=(float(min_spw), float(max_spw)),
+        ranking_metric=ranking_metric,
     )
     thresholds = dict(zip(result.thresholds["fold"], result.thresholds["threshold"], strict=True))
     return result.scores, result.signals.fillna(False).astype(bool), thresholds

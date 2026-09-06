@@ -16,5 +16,6 @@ oot_start: 2025-09-01
 thresholds: [0.6, 0.7, 0.8, 0.9]
 quantile_rates: [0.10, 0.15, 0.20]
 target_signals_per_week: [0.8, 2.5]
+threshold_metric: lar
 seed: 0
 reports_dir: reports

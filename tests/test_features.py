@@ -1,7 +1,8 @@
 import pandas as pd
 
 from fx_signal.explain import pick_fact
-from fx_signal.features import add_features
+from fx_signal.features import GROUP_A, add_features
+from fx_signal.indicators import ALL_SIGNAL_COLUMNS, RESEARCH_SIGNAL_COLUMNS
 
 
 def test_features_do_not_change_when_future_is_appended() -> None:
@@ -15,6 +16,7 @@ def test_features_do_not_change_when_future_is_appended() -> None:
     )
     columns = [
         "signal_momentum",
+        "signal_better_than_30_day_average",
         "down_streak",
         "price_percentile",
         "ret_1",
@@ -29,6 +31,31 @@ def test_features_do_not_change_when_future_is_appended() -> None:
         full.iloc[:30][comparable].reset_index(drop=True),
         check_dtype=False,
     )
+
+
+def test_has_fact_includes_research_indicators() -> None:
+    dates = pd.date_range("2024-01-01", periods=80, freq="D")
+    rates = pd.DataFrame(
+        {
+            "currency": "TJS",
+            "effective_date": dates,
+            "rub_per_unit": [20.0] * 40 + [18.0] * 40,
+        }
+    )
+    result = add_features(rates, level_window=90, reversal_window=5)
+
+    assert set(RESEARCH_SIGNAL_COLUMNS).issubset(result.columns)
+    expected = result[list(ALL_SIGNAL_COLUMNS)].astype("boolean").fillna(False).any(axis=1)
+    pd.testing.assert_series_equal(
+        result["has_fact"].astype(bool),
+        expected.astype(bool),
+        check_names=False,
+    )
+    research_only = result[list(RESEARCH_SIGNAL_COLUMNS)].astype("boolean").fillna(False).any(
+        axis=1
+    ) & ~result[list(GROUP_A)].astype("boolean").fillna(False).any(axis=1)
+    assert bool(research_only.any())
+    assert bool(result.loc[research_only, "has_fact"].all())
 
 
 def test_pick_fact_prefers_level_over_momentum() -> None:
