@@ -13,7 +13,7 @@
   margin: (left: 62pt, right: 62pt, top: 42pt, bottom: 30pt),
   fill: beige,
 )
-#set text(font: "YS Text", size: 26pt, fill: navy, lang: "ru")
+#set text(font: "PT Sans", size: 26pt, fill: navy, lang: "ru")
 #set par(leading: 0.65em)
 #set list(indent: 20pt, body-indent: 11pt, spacing: 30pt)
 #set enum(indent: 20pt, body-indent: 11pt, spacing: 30pt)
@@ -182,7 +182,29 @@
 ]
 
 #slide("Оценка эффективности")[
-  Тут будет красивая табличка с метриками
+  #set text(size: 22pt)
+  #set par(leading: 0.5em)
+  Final OOT, среднее по пяти коридорам. LAR — на горизонтах 1, 5 и 10 публикаций.
+
+  #v(10pt)
+  #set text(size: 20pt)
+  #table(
+    columns: (2.1fr, 0.85fr, 0.85fr, 0.95fr, 1.0fr),
+    align: (left, center, center, center, center),
+    inset: (x: 12pt, y: 11pt),
+    stroke: 0.6pt + navy,
+    fill: (_, y) => if y == 0 { sand.lighten(82%) } else { cream },
+    [*Подход*], [*LAR 1*], [*LAR 5*], [*LAR 10*], [*Кучность*],
+    [CatBoost (A–D)], [1.40], [4.71], [4.40], [30%],
+    [Правило: momentum], [1.44], [1.87], [2.66], [56%],
+    [Правило: level], [1.24], [1.45], [1.83], [80%],
+  )
+  #v(12pt)
+  #set text(size: 15pt, fill: navy.lighten(20%))
+  Кучность — доля сигналов, отправленных не позднее чем через 3 календарных дня после предыдущего. Меньше — лучше.
+  #v(6pt)
+  #set text(size: 18pt, fill: navy)
+  Порог среднего LAR > 1.3 на h=5 проходят только эти три подхода. CatBoost лидирует при редких сигналах.
 ]
 
 #frame[
@@ -199,11 +221,31 @@
 #pagebreak(weak: true)
 
 #slide("Данные")[
-  Здесь будет красивое описание источников фичей
+  #set text(size: 20pt)
+  #set list(spacing: 13pt)
+  Один источник: официальные курсы ЦБ РФ, XML API. Срез 1 января 2019 — 2 сентября 2026.
+  Горизонт — число публикаций, не календарные дни. Курс ЦБ — proxy, не исполнение в приложении.
+
+  #v(10pt)
+  #set list(spacing: 11pt)
+  - *A* — факты на курсе коридора: momentum, level, reversal, праздник страны получателя
+  - *B* — сила тех же фактов: длина снижения, процентиль, отскок от минимума, дни до праздника
+  - *C* — динамика того же `rub_per_unit`: доходности 1–20, волатильность и тренд за 20 публикаций
+  - *D* — контекст ЦБ: USD, EUR, CNY и остаток коридора после доллара
+
+  #v(8pt)
+  #set text(size: 17pt)
+  Коридоры A–C: RUB→AMD, KZT, KGS, TJS, UZS. `rub_per_unit` — рублей за единицу валюты получателя, меньше — выгоднее.
 ]
 
-#slide("ML-модель")[
-  Здесь будет красивое описание устройства модели
+#slide("Тестирование")[
+  #set text(size: 21pt)
+  #set list(spacing: 14pt)
+  - Expanding walk-forward: в каждом фолде train только на прошлом, порог на validation, test без подстройки
+  - Модели — LogReg и CatBoost на `stay_not_worse` при h=5. Из train снимаем последние 5 публикаций: их метки смотрят вперёд
+  - Правила momentum, level, reversal, seasonality не обучаются, но считаются на тех же test-датах и коридорах
+  - 2022 — стресс отдельно. 2023 — август 2025 — walk-forward. Сентябрь 2025 — сентябрь 2026 — финальный OOT
+  - Порог для OOT выбран до его начала. Метрики — по каждому коридору, среднее его не заменяет
 ]
 
 
