@@ -4,6 +4,7 @@ from typing import Annotated
 import pandas as pd
 import typer
 
+from fx_signal.backtest_report import run_backtest_report
 from fx_signal.baseline import run_baseline
 from fx_signal.data import fetch_snapshot, load_yaml
 from fx_signal.external import from_public_context
@@ -81,6 +82,20 @@ def summary(
 ) -> None:
     path = run_summary(config)
     typer.echo(f"Summary table written to: {path}")
+
+
+@app.command("backtest-report")
+def backtest_report(
+    config: Annotated[Path, typer.Option(exists=True)] = Path("configs/backtest_report.yaml"),
+    first_test_year: Annotated[int | None, typer.Option()] = None,
+    oot_start: Annotated[str | None, typer.Option()] = None,
+    end: Annotated[str | None, typer.Option()] = None,
+) -> None:
+    """Recompute the strict walk-forward backtest and publish its reports."""
+    path = run_backtest_report(
+        config, first_test_year=first_test_year, oot_start=oot_start, end=end
+    )
+    typer.echo(f"Backtest report written to: {path}")
 
 
 @app.command("indicator-search")
