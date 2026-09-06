@@ -16,6 +16,10 @@ from fx_signal.backtest import walk_forward_predictions
 from fx_signal.features import columns_for_groups
 from fx_signal.indicators import ALL_SIGNAL_COLUMNS, add_research_indicators
 from fx_signal.metrics import add_customer_outcomes, evaluate_method
+from fx_signal.signal_snapshot import (
+    DEFAULT_ALLOWED_SIGNALS,
+    apply_meta_policy_to_predictions,
+)
 from fx_signal.splits import WalkForwardFold, make_walk_forward_folds, mask_test
 from fx_signal.targets import add_targets, target_column
 from fx_signal.train import _random_signal, _repo_root, build_frame
@@ -149,7 +153,14 @@ def _candidate_signal(
         quantile_rates=config["quantile_rates"],
         target_signals_per_week=(float(min_spw), float(max_spw)),
     )
-    return result.signals.fillna(False).astype(bool), result.thresholds
+    _, final_signals = apply_meta_policy_to_predictions(
+        frame,
+        result,
+        allowed_signals=tuple(config.get("allowed_signals", DEFAULT_ALLOWED_SIGNALS)),
+        cooldown_days=int(config["cooldown_days"]),
+        weekly_limit=int(config["weekly_limit"]),
+    )
+    return final_signals, result.thresholds
 
 
 def _evaluate_candidate(

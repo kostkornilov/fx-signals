@@ -18,6 +18,7 @@ uv run fx-signals data fetch --config configs/data.yaml
 uv run fx-signals baseline --config configs/baseline.yaml
 uv run fx-signals research --config configs/research.yaml
 uv run fx-signals backtest-report --config configs/backtest_report.yaml
+uv run fx-signals signals --config configs/signals.yaml --as-of 2026-09-02
 uv run jupyter nbconvert --execute --inplace notebooks/*.ipynb
 ```
 
@@ -34,6 +35,28 @@ final OOT не участвует в обучении. Полные метрик
 `reports/backtest/backtest_metrics.csv`, краткий вывод — в `reports/backtest/REPORT.md`,
 OOT-витрина для финального отчёта — в `reports/tables/ml_summary_lift.csv`.
 Период можно переопределить флагами `--first-test-year`, `--oot-start` и `--end`.
+
+### Сигналы на дату среза
+
+Команда `signals` воспроизводит коммуникации так, как они выглядели на произвольную дату `T`:
+
+```bash
+uv run fx-signals signals \
+  --config configs/signals.yaml \
+  --as-of 2026-09-02 \
+  --output artifacts/signals/demo.csv
+```
+
+До расчёта признаков команда отбрасывает все рыночные строки с `available_at > T`, обучает и
+калибрует модель на предшествующих периодах, применяет метаалгоритм, трёхдневный cooldown и
+недельный лимит. По умолчанию используется `CatBoost (A,B,C,D)`; модель, окна и разрешённые
+индикаторы задаются в `configs/signals.yaml`.
+
+CSV содержит только рекомендованные коммуникации: дату среза и фактическую дату курса, коридор,
+индикатор, направление, силу, скорость, сценарий, готовые заголовок и текст пуша, а также score,
+порог и причину решения метаалгоритма. Если на дату нет подходящей коммуникации, создаётся пустой
+CSV с тем же набором колонок. Тексты и запрещённые формулировки находятся в
+`configs/texts.yaml`; они описывают только известные прошлые и текущие факты и не прогнозируют курс.
 
 ## Семантика
 

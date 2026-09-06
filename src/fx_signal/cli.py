@@ -11,6 +11,7 @@ from fx_signal.external import from_public_context
 from fx_signal.indicator_search import run_indicator_report, run_indicator_search
 from fx_signal.public_context import fetch_public_context
 from fx_signal.research import run_research
+from fx_signal.signal_snapshot import run_signal_snapshot
 from fx_signal.train import run_summary, run_train
 
 app = typer.Typer(help="Explainable FX signal experiments")
@@ -120,6 +121,18 @@ def research(
 ) -> None:
     path = run_research(config)
     typer.echo(f"Research report written to: {path}")
+
+
+@app.command("signals")
+def signals(
+    as_of: Annotated[str, typer.Option(help="Point-in-time cutoff in YYYY-MM-DD format")],
+    config: Annotated[Path, typer.Option(exists=True)] = Path("configs/signals.yaml"),
+    output: Annotated[Path | None, typer.Option(help="Destination CSV path")] = None,
+) -> None:
+    """Calculate the final communication signals as they looked at one cutoff."""
+    path = run_signal_snapshot(config, as_of=as_of, output_path=output)
+    count = len(pd.read_csv(path))
+    typer.echo(f"Signal snapshot written to: {path} ({count} signal(s))")
 
 
 if __name__ == "__main__":
