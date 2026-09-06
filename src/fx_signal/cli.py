@@ -1,10 +1,12 @@
 from pathlib import Path
 from typing import Annotated
 
+import pandas as pd
 import typer
 
 from fx_signal.baseline import run_baseline
 from fx_signal.data import fetch_snapshot, load_yaml
+from fx_signal.external import from_public_context
 from fx_signal.indicator_search import run_indicator_report, run_indicator_search
 from fx_signal.public_context import fetch_public_context
 from fx_signal.research import run_research
@@ -32,6 +34,27 @@ def fetch_context(
     loaded = load_yaml(config)
     path = fetch_public_context(loaded, config.resolve().parent.parent, force=force)
     typer.echo(f"Public context snapshot ready: {path}")
+
+
+@data_app.command("fetch-external")
+def fetch_external(
+    config: Annotated[Path, typer.Option(exists=True)] = Path("configs/research_external.yaml"),
+    force: Annotated[bool, typer.Option(help="Replace existing public and external snapshots")] = False,
+) -> None:
+    loaded = load_yaml(config)
+    repo_root = config.resolve().parent.parent
+    public_path = fetch_public_context(loaded, repo_root, force=force)
+    external_path = Path(loaded.get("external_path", "data/raw/external/market_series.csv"))
+    if not external_path.is_absolute():
+        external_path = repo_root / external_path
+    if external_path.exists() and not force:
+        typer.echo(f"External snapshot already present: {external_path}")
+        return
+    context = pd.read_csv(public_path, parse_dates=["effective_date", "available_at"])
+    series = from_public_context(context, source=str(loaded.get("external_source", "moex")))
+    external_path.parent.mkdir(parents=True, exist_ok=True)
+    series.to_csv(external_path, index=False)
+    typer.echo(f"External snapshot ready: {external_path}")
 
 
 @app.command("baseline")

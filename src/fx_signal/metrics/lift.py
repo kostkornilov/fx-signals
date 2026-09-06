@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from fx_signal.metrics.composite import fixed_window_lift_at_risk
 from fx_signal.metrics.customer_value_and_regret import (
     evaluate_customer_outcomes,
     forward_bps,
@@ -160,6 +161,13 @@ def evaluate_method(
             group["effective_date"], target, signal
         )
         useful_per_week = useful_signals_per_week(group["effective_date"], target, signal)
+        lar = fixed_window_lift_at_risk(
+            group,
+            horizon=horizon,
+            target_col=target_col,
+            signal_col=signal_col,
+            rng=rng,
+        )
         rows.append(
             {
                 "horizon": horizon,
@@ -183,6 +191,7 @@ def evaluate_method(
                 **frequency,
                 "signals_per_week": frequency["pushes_per_week"],
                 "cluster_share": cluster_share(signal),
+                "lift_at_risk": lar["lift_at_risk"],
             }
         )
     return pd.DataFrame(rows)

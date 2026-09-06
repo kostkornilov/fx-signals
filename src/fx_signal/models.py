@@ -13,6 +13,8 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 from fx_signal.metrics import forward_bps, signals_per_week
 
+SATURATION_SIGNALS_PER_WEEK = 1.0
+
 try:
     from catboost import CatBoostClassifier
 except ImportError:  # pragma: no cover
@@ -143,6 +145,17 @@ class _ColumnPrep(BaseEstimator, TransformerMixin):
         return np.hstack([numeric, cats])
 
 
+def _saturating_score(
+    weekly: float,
+    lift: float,
+    *,
+    saturation: float = SATURATION_SIGNALS_PER_WEEK,
+) -> float:
+    if saturation <= 0:
+        return lift
+    return lift * min(weekly / saturation, 1.0)
+
+
 def select_threshold(
     val: pd.DataFrame,
     proba: np.ndarray,
@@ -153,7 +166,16 @@ def select_threshold(
     quantiles: list[float],
     min_signals_per_week: float,
     max_signals_per_week: float,
+    saturation_signals_per_week: float = SATURATION_SIGNALS_PER_WEEK,
 ) -> float:
+    """Pick a send threshold by lift with frequency saturation at 1 signal/week.
+
+    ``min_signals_per_week`` is accepted for call-site compatibility and is not
+    used: undershooting one signal per week is already inside the saturating
+    score. Candidates above ``max_signals_per_week`` are dropped when any
+    remaining candidate has positive mean bps.
+    """
+    del min_signals_per_week
     has_fact = val["has_fact"].fillna(False).to_numpy()
     target = val[target_col].astype(bool).to_numpy()
     dates = val["effective_date"]
@@ -176,12 +198,21 @@ def select_threshold(
         mean_bps = float(np.nanmean(bps[pred]))
         scored.append((threshold, weekly, lift, mean_bps))
 
-    feasible = [
-        item
-        for item in scored
-        if min_signals_per_week <= item[1] <= max_signals_per_week and item[3] > 0
-    ]
-    pool = feasible or [item for item in scored if item[3] > 0] or scored
+    positive = [item for item in scored if item[3] > 0]
+    capped = [item for item in positive if item[1] <= max_signals_per_week]
+    pool = capped or positive
     if not pool:
         return 0.8
-    return max(pool, key=lambda item: (item[2], item[3], -abs(item[1] - 1.5)))[0]
+
+    def sort_key(item: tuple[float, float, float, float]) -> tuple[float, float]:
+        _threshold, weekly, lift, mean_bps = item
+        return (
+            _saturating_score(
+                weekly,
+                lift,
+                saturation=saturation_signals_per_week,
+            ),
+            mean_bps,
+        )
+
+    return max(pool, key=sort_key)[0]

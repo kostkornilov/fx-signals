@@ -11,6 +11,7 @@ import yaml
 from fx_signal.backtest import walk_forward_predictions
 from fx_signal.data import load_rates, load_yaml
 from fx_signal.explain import add_explanations
+from fx_signal.external import load_external_series
 from fx_signal.features import add_features, columns_for_groups
 from fx_signal.metrics import evaluate_method
 from fx_signal.splits import (
@@ -58,11 +59,19 @@ def build_frame(config: dict, repo_root: Path) -> pd.DataFrame:
             context_file = repo_root / context_file
         if context_file.exists():
             context = load_rates(context_file)
+    external = None
+    if config.get("external_path"):
+        external_file = Path(config["external_path"])
+        if not external_file.is_absolute():
+            external_file = repo_root / external_file
+        if external_file.exists():
+            external = load_external_series(external_file)
     horizon = int(config["horizon"])
     frame = add_targets(rates, horizon=horizon)
     return add_features(
         frame,
         context=context,
+        external=external,
         momentum_days=int(config["momentum_days"]),
         level_window=int(config["level_window"]),
         level_quantile=float(config["level_quantile"]),
