@@ -1,0 +1,35 @@
+data_path: data/raw/cbr/baseline-2019-2026/rates.csv
+context_path: data/raw/cbr/baseline-2019-2026/context_rates.csv
+texts_path: configs/texts.yaml
+corridors: [AMD, KZT, KGS, TJS, UZS]
+
+target: stay_not_worse
+horizon: 5
+model: catboost
+feature_groups: [A, B, C, D]
+validation_days: 365
+policy_lookback_days: 10
+thresholds: [0.6, 0.7, 0.8, 0.9]
+quantile_rates: [0.10, 0.15, 0.20]
+target_signals_per_week: [0.8, 2.5]
+default_threshold: 0.8
+
+momentum_days: 3
+level_window: 90
+level_quantile: 0.10
+reversal_window: 20
+holiday_lookahead_days: 7
+
+allowed_signals:
+  - signal_momentum
+  - signal_level
+  - signal_seasonality
+  - signal_better_than_one_year_ago
+  - signal_better_range_held
+  - signal_larger_than_usual_latest_improvement
+  - signal_better_than_30_day_average
+  - signal_most_recent_changes_favourable
+
+cooldown_days: 3
+weekly_limit: 2
+max_staleness_days: 3

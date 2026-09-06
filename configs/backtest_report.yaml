@@ -24,6 +24,17 @@ cooldown_days: 3
 seed: 0
 baseline_draws: 20
 
+# The final model stream is explainable and excludes worsening-only scenarios.
+allowed_signals:
+  - signal_momentum
+  - signal_level
+  - signal_seasonality
+  - signal_better_than_one_year_ago
+  - signal_better_range_held
+  - signal_larger_than_usual_latest_improvement
+  - signal_better_than_30_day_average
+  - signal_most_recent_changes_favourable
+
 rule_signals:
   - signal_better_than_one_year_ago
   - signal_better_range_held
