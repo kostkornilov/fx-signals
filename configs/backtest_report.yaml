@@ -1,0 +1,51 @@
+data_path: data/raw/cbr/baseline-2019-2026/rates.csv
+context_path: data/raw/cbr/baseline-2019-2026/context_rates.csv
+corridors: [AMD, KZT, KGS, TJS, UZS]
+
+target: stay_not_worse
+training_horizon: 5
+evaluation_horizons: [1, 3, 5, 10, 20]
+first_test_year: 2022
+oot_start: 2025-09-01
+end: 2026-09-02
+
+momentum_days: 3
+level_window: 90
+level_quantile: 0.10
+reversal_window: 20
+holiday_lookahead_days: 7
+
+thresholds: [0.6, 0.7, 0.8, 0.9]
+quantile_rates: [0.10, 0.15, 0.20]
+target_signals_per_week: [0.8, 2.5]
+random_signals_per_week: 1.5
+weekly_limit: 2
+cooldown_days: 3
+seed: 0
+baseline_draws: 20
+
+rule_signals:
+  - signal_better_than_one_year_ago
+  - signal_better_range_held
+  - signal_better_than_30_day_average
+  - signal_momentum
+  - signal_most_recent_changes_favourable
+  - signal_larger_than_usual_latest_improvement
+  - signal_level
+  - signal_seasonality
+  - signal_most_recent_changes_unfavourable
+  - signal_reversal
+  - signal_less_than_one_year_ago
+
+model_candidates:
+  - {kind: logreg, feature_groups: [A]}
+  - {kind: logreg, feature_groups: [A, B]}
+  - {kind: logreg, feature_groups: [A, B, C]}
+  - {kind: logreg, feature_groups: [A, B, C, D]}
+  - {kind: catboost, feature_groups: [A]}
+  - {kind: catboost, feature_groups: [A, B]}
+  - {kind: catboost, feature_groups: [A, B, C]}
+  - {kind: catboost, feature_groups: [A, B, C, D]}
+
+reports_dir: reports/backtest
+oot_summary_path: reports/tables/ml_summary_lift.csv

@@ -17,6 +17,7 @@ uv sync --extra dev
 uv run fx-signals data fetch --config configs/data.yaml
 uv run fx-signals baseline --config configs/baseline.yaml
 uv run fx-signals research --config configs/research.yaml
+uv run fx-signals backtest-report --config configs/backtest_report.yaml
 uv run jupyter nbconvert --execute --inplace notebooks/*.ipynb
 ```
 
@@ -24,6 +25,15 @@ uv run jupyter nbconvert --execute --inplace notebooks/*.ipynb
 [официального XML API Банка России](https://www.cbr.ru/development/SXML/) и создаёт локальный
 manifest с URL, числом строк и SHA256. Период эксперимента закреплён в `configs/data.yaml`, поэтому
 результат не сдвигается при появлении нового курса.
+
+`backtest-report` запускает purged walk-forward бэктест на дневных официальных курсах ЦБ:
+основные коридоры — `RUB→AMD/KZT/KGS/TJS/UZS`, контекстные ряды — `USD/EUR/CNY`.
+Фиксированные правила не обучаются; LogReg и CatBoost обучаются на таргете `h=5`, а единый
+поток их сигналов проверяется на `h=1/3/5/10/20`. Пороги выбираются только на validation,
+final OOT не участвует в обучении. Полные метрики пишутся в
+`reports/backtest/backtest_metrics.csv`, краткий вывод — в `reports/backtest/REPORT.md`,
+OOT-витрина для финального отчёта — в `reports/tables/ml_summary_lift.csv`.
+Период можно переопределить флагами `--first-test-year`, `--oot-start` и `--end`.
 
 ## Семантика
 
