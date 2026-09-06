@@ -13,7 +13,7 @@
   margin: (left: 62pt, right: 62pt, top: 42pt, bottom: 30pt),
   fill: beige,
 )
-#set text(font: "PT Sans", size: 26pt, fill: navy, lang: "ru")
+#set text(font: "YS Text", size: 26pt, fill: navy, lang: "ru")
 #set par(leading: 0.65em)
 #set list(indent: 20pt, body-indent: 11pt, spacing: 30pt)
 #set enum(indent: 20pt, body-indent: 11pt, spacing: 30pt)
@@ -110,18 +110,7 @@
 #slide("Схема решения")[
   1. ML-модель определяет, выгоден ли перевод сейчас
   2. Считается пул аналитических сигналов, которые можно сообщить пользователю
-  3. Из пула сработавших сигналов выбирается наиболее понятный пользователю
-]
-
-#slide("Клиентский путь")[
-  \<Здесь будут 3 красивые картинки - пуш -> предзаполненный экран перевода (когда пуш актуален) -> экран перевода, когда пуш устарел\>
-
-
-  \
-
-  Объясняем смысл пуша
-
-  Даём пользователю возможность отказаться
+  3. Из пула сработавших сигналов выбирается наиболее понятный
 ]
 
 #slide("Сигналы")[
@@ -163,8 +152,85 @@
 
 ]
 
+#slide("Клиентский путь")[
+  // Три самостоятельных PNG-макета, созданных по референсу тиммейта.
+  // Генерация: client_path/prompts.json. Данные демонстрационные.
+  #set text(size: 13pt)
+  #set par(leading: 0.35em, spacing: 0pt)
+  #set block(above: 0pt, below: 0pt)
+  #grid(
+    columns: (1fr, 1fr, 1fr),
+    column-gutter: 26pt,
+    align: center,
+    [
+      #text(size: 19pt, weight: "bold")[Получили пуш]
+      #v(10pt)
+      #image("client_path/01-push.png", height: 330pt, fit: "contain")
+    ],
+    [
+      #text(size: 19pt, weight: "bold")[Сигнал актуален]
+      #v(10pt)
+      #image("client_path/02-current.png", height: 330pt, fit: "contain")
+    ],
+    [
+      #text(size: 19pt, weight: "bold")[Сигнал устарел]
+      #v(10pt)
+      #image("client_path/03-expired.png", height: 330pt, fit: "contain")
+    ],
+  )
+  #v(10pt)
+  #text(size: 10pt, fill: rgb("#73747b"))[
+    Концепт интерфейса, данные условные. Курс ЦБ для сигнала, курс приложения для перевода.
+  ]
+]
 
-#slide("Метрика")[
+#slide("Оценка эффективности")[
+  // #set text(size: 22pt)
+  // #set par(leading: 0.5em)
+  // Final OOT, среднее по пяти коридорам. LAR — на горизонтах 1, 5 и 10 публикаций.
+
+  Использование ML-модели даёт значительный буст в сравнении с наивным подходом
+
+  #v(10pt)
+  #set text(size: 20pt)
+  #table(
+    columns: (2.1fr, 0.85fr, 0.85fr, 0.95fr, 1.0fr),
+    align: (left, center, center, center, center),
+    inset: (x: 12pt, y: 11pt),
+    stroke: 0.6pt + navy,
+    fill: (_, y) => if y == 0 { sand.lighten(82%) } else { cream },
+    // [*Подход*], [*LAR 1*], [*LAR 5*], [*LAR 10*], [*Кучность*],
+    // [CatBoost (сигналы + контекст)], [1.40], [4.71], [4.40], [30%],
+    // [Правило: momentum], [1.44], [1.87], [2.66], [56%],
+    // [Правило: level], [1.24], [1.45], [1.83], [80%],
+    [*Подход*], [*Lift\@5*], [*Lift\@10*], [*LAR\@5*], [*LAR\@10*],
+    [CatBoost (сигналы + контекст)], [1.40], [4.71], [4.40], [30%],
+    [Правило: momentum], [1.44], [1.87], [2.66], [56%],
+    [Правило: level], [1.24], [1.45], [1.83], [80%],
+  )
+
+  С помощью порога можно регулировать частоту пушей
+  #v(12pt)
+  #set text(size: 15pt, fill: navy.lighten(20%))
+  Кучность — доля сигналов, отправленных не позднее чем через 3 календарных дня после предыдущего. Меньше — лучше.
+  #v(6pt)
+]
+
+
+#frame[
+  #place(
+    top + left,
+    dx: -62pt,
+    dy: -42pt,
+    rect(width: 13.333in, height: 7.5in, fill: alfa-violet),
+  )
+  #place(top + right, alfa-logo(width: 150pt))
+  #v(220pt)
+  #text(size: 50pt, weight: "bold", fill: cream)[Приложение к презентации]
+]
+#pagebreak(weak: true)
+
+#slide("Метрика LiftAtRisk")[
   Lift не учитывает выгоду от "попаданий" и потери от "промахов"
 
   Модифицируем метрику:
@@ -181,44 +247,6 @@
   $rho = 2, D = 1, q=1.3$
 ]
 
-#slide("Оценка эффективности")[
-  #set text(size: 22pt)
-  #set par(leading: 0.5em)
-  Final OOT, среднее по пяти коридорам. LAR — на горизонтах 1, 5 и 10 публикаций.
-
-  #v(10pt)
-  #set text(size: 20pt)
-  #table(
-    columns: (2.1fr, 0.85fr, 0.85fr, 0.95fr, 1.0fr),
-    align: (left, center, center, center, center),
-    inset: (x: 12pt, y: 11pt),
-    stroke: 0.6pt + navy,
-    fill: (_, y) => if y == 0 { sand.lighten(82%) } else { cream },
-    [*Подход*], [*LAR 1*], [*LAR 5*], [*LAR 10*], [*Кучность*],
-    [CatBoost (A–D)], [1.40], [4.71], [4.40], [30%],
-    [Правило: momentum], [1.44], [1.87], [2.66], [56%],
-    [Правило: level], [1.24], [1.45], [1.83], [80%],
-  )
-  #v(12pt)
-  #set text(size: 15pt, fill: navy.lighten(20%))
-  Кучность — доля сигналов, отправленных не позднее чем через 3 календарных дня после предыдущего. Меньше — лучше.
-  #v(6pt)
-  #set text(size: 18pt, fill: navy)
-  Порог среднего LAR > 1.3 на h=5 проходят только эти три подхода. CatBoost лидирует при редких сигналах.
-]
-
-#frame[
-  #place(
-    top + left,
-    dx: -62pt,
-    dy: -42pt,
-    rect(width: 13.333in, height: 7.5in, fill: alfa-violet),
-  )
-  #place(top + right, alfa-logo(width: 150pt))
-  #v(220pt)
-  #text(size: 50pt, weight: "bold", fill: cream)[Приложение к презентации]
-]
-#pagebreak(weak: true)
 
 #slide("Данные")[
   #set text(size: 20pt)
@@ -249,6 +277,61 @@
 ]
 
 
+#slide("Сравнение конкурентов")[
+  // Основа: client_path__raw/project.pptx, слайды 6–8, и designs.md.
+  // Проверка публичных источников: 06.09.2026. «Нет» из исходной таблицы
+  // заменено на «Не подтверждено»: обзор не доказывает отсутствие функции.
+  // Порог 2% — пример настройки из концепта, не результат калибровки модели.
+  #set text(size: 16pt)
+  #set par(leading: 0.4em, spacing: 0pt)
+  #set block(above: 0pt, below: 0pt)
+  #let muted = rgb("#777780")
+  #let unknown = text(size: 13pt, fill: muted)[Не подтверждено]
+  #table(
+    columns: (194pt, 144pt, 158pt, 144pt, 196pt),
+    align: (left, left, left, left, left),
+    inset: (x: 12pt, y: 14pt),
+    stroke: (bottom: 0.6pt + rgb("#d5d5db")),
+    fill: (x, y) => if x == 4 { rgb("#ffe6e3") } else if y == 0 { cream } else { none },
+    table.header(
+      [*Критерий*],
+      [*Альфа-Банк*],
+      [*Т-Банк*],
+      [*Сбер*],
+      [#text(fill: sand, weight: "bold")[Наш концепт]],
+    ),
+    [Примеры настроек\ уведомлений],
+    [Подключение\ и отключение],
+    [Порог суммы\ для СМС],
+    [Тон пушей\ на Android],
+    [*Порог сигнала*\ *о курсе*],
+    [Факт о выгоде\ курса в пуше],
+    unknown, unknown, unknown,
+    [Факт и период\ сравнения],
+
+    [Экран при\ устаревшем сигнале],
+    unknown, unknown, unknown,
+    [Было / сейчас\ и отложить],
+  )
+  #v(18pt)
+  #text(size: 25pt, weight: "bold", fill: sand)[Управление частотой через порог]
+  #v(8pt)
+  #text(size: 18pt)[
+    Пример: уведомлять, когда курс выгоднее среднего за 30 дней на 2%.
+    Лимит 1–2 пуша в неделю задаём отдельно.
+  ]
+  #v(15pt)
+  #text(size: 11pt, fill: muted)[
+    «Не подтверждено» — в изученных материалах нет подтверждения функции для переводов за рубеж.
+  ]
+  #v(5pt)
+  #text(size: 10pt, fill: muted)[
+    Источники:
+    #link("https://digital.alfabank.ru/digest/retail/2025-54")[Альфа-Банк: настройки уведомлений];
+    #link("https://www.tbank.ru/bank/help/debit-cards/tinkoff-black/protect-card/notifications/")[Т-Банк: порог СМС, версия 7.24+];
+    #link("https://t.me/sberbank/3784")[Сбер: приложение 16.1+ на Android].
+  ]
+]
 
 // // 3. Problem
 // #slide("Проблематика", 2)[
