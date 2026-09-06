@@ -1,0 +1,652 @@
+[
+  {
+    "experiment": "random",
+    "fold": "wf_2022",
+    "threshold": null,
+    "train_end": "2021-01-01 00:00:00",
+    "val_start": "2021-01-01 00:00:00",
+    "val_end": "2022-01-01 00:00:00",
+    "test_start": "2022-01-01 00:00:00",
+    "test_end": "2023-01-01 00:00:00"
+  },
+  {
+    "experiment": "random",
+    "fold": "wf_2023",
+    "threshold": null,
+    "train_end": "2022-01-01 00:00:00",
+    "val_start": "2022-01-01 00:00:00",
+    "val_end": "2023-01-01 00:00:00",
+    "test_start": "2023-01-01 00:00:00",
+    "test_end": "2024-01-01 00:00:00"
+  },
+  {
+    "experiment": "random",
+    "fold": "wf_2024",
+    "threshold": null,
+    "train_end": "2023-01-01 00:00:00",
+    "val_start": "2023-01-01 00:00:00",
+    "val_end": "2024-01-01 00:00:00",
+    "test_start": "2024-01-01 00:00:00",
+    "test_end": "2025-01-01 00:00:00"
+  },
+  {
+    "experiment": "random",
+    "fold": "wf_2025",
+    "threshold": null,
+    "train_end": "2024-01-01 00:00:00",
+    "val_start": "2024-01-01 00:00:00",
+    "val_end": "2025-01-01 00:00:00",
+    "test_start": "2025-01-01 00:00:00",
+    "test_end": "2025-09-01 00:00:00"
+  },
+  {
+    "experiment": "random",
+    "fold": "oot",
+    "threshold": null,
+    "train_end": "2024-09-01 00:00:00",
+    "val_start": "2024-09-01 00:00:00",
+    "val_end": "2025-09-01 00:00:00",
+    "test_start": "2025-09-01 00:00:00",
+    "test_end": "2026-09-03 00:00:00"
+  },
+  {
+    "experiment": "momentum",
+    "fold": "wf_2022",
+    "threshold": null,
+    "train_end": "2021-01-01 00:00:00",
+    "val_start": "2021-01-01 00:00:00",
+    "val_end": "2022-01-01 00:00:00",
+    "test_start": "2022-01-01 00:00:00",
+    "test_end": "2023-01-01 00:00:00"
+  },
+  {
+    "experiment": "momentum",
+    "fold": "wf_2023",
+    "threshold": null,
+    "train_end": "2022-01-01 00:00:00",
+    "val_start": "2022-01-01 00:00:00",
+    "val_end": "2023-01-01 00:00:00",
+    "test_start": "2023-01-01 00:00:00",
+    "test_end": "2024-01-01 00:00:00"
+  },
+  {
+    "experiment": "momentum",
+    "fold": "wf_2024",
+    "threshold": null,
+    "train_end": "2023-01-01 00:00:00",
+    "val_start": "2023-01-01 00:00:00",
+    "val_end": "2024-01-01 00:00:00",
+    "test_start": "2024-01-01 00:00:00",
+    "test_end": "2025-01-01 00:00:00"
+  },
+  {
+    "experiment": "momentum",
+    "fold": "wf_2025",
+    "threshold": null,
+    "train_end": "2024-01-01 00:00:00",
+    "val_start": "2024-01-01 00:00:00",
+    "val_end": "2025-01-01 00:00:00",
+    "test_start": "2025-01-01 00:00:00",
+    "test_end": "2025-09-01 00:00:00"
+  },
+  {
+    "experiment": "momentum",
+    "fold": "oot",
+    "threshold": null,
+    "train_end": "2024-09-01 00:00:00",
+    "val_start": "2024-09-01 00:00:00",
+    "val_end": "2025-09-01 00:00:00",
+    "test_start": "2025-09-01 00:00:00",
+    "test_end": "2026-09-03 00:00:00"
+  },
+  {
+    "experiment": "level",
+    "fold": "wf_2022",
+    "threshold": null,
+    "train_end": "2021-01-01 00:00:00",
+    "val_start": "2021-01-01 00:00:00",
+    "val_end": "2022-01-01 00:00:00",
+    "test_start": "2022-01-01 00:00:00",
+    "test_end": "2023-01-01 00:00:00"
+  },
+  {
+    "experiment": "level",
+    "fold": "wf_2023",
+    "threshold": null,
+    "train_end": "2022-01-01 00:00:00",
+    "val_start": "2022-01-01 00:00:00",
+    "val_end": "2023-01-01 00:00:00",
+    "test_start": "2023-01-01 00:00:00",
+    "test_end": "2024-01-01 00:00:00"
+  },
+  {
+    "experiment": "level",
+    "fold": "wf_2024",
+    "threshold": null,
+    "train_end": "2023-01-01 00:00:00",
+    "val_start": "2023-01-01 00:00:00",
+    "val_end": "2024-01-01 00:00:00",
+    "test_start": "2024-01-01 00:00:00",
+    "test_end": "2025-01-01 00:00:00"
+  },
+  {
+    "experiment": "level",
+    "fold": "wf_2025",
+    "threshold": null,
+    "train_end": "2024-01-01 00:00:00",
+    "val_start": "2024-01-01 00:00:00",
+    "val_end": "2025-01-01 00:00:00",
+    "test_start": "2025-01-01 00:00:00",
+    "test_end": "2025-09-01 00:00:00"
+  },
+  {
+    "experiment": "level",
+    "fold": "oot",
+    "threshold": null,
+    "train_end": "2024-09-01 00:00:00",
+    "val_start": "2024-09-01 00:00:00",
+    "val_end": "2025-09-01 00:00:00",
+    "test_start": "2025-09-01 00:00:00",
+    "test_end": "2026-09-03 00:00:00"
+  },
+  {
+    "experiment": "reversal",
+    "fold": "wf_2022",
+    "threshold": null,
+    "train_end": "2021-01-01 00:00:00",
+    "val_start": "2021-01-01 00:00:00",
+    "val_end": "2022-01-01 00:00:00",
+    "test_start": "2022-01-01 00:00:00",
+    "test_end": "2023-01-01 00:00:00"
+  },
+  {
+    "experiment": "reversal",
+    "fold": "wf_2023",
+    "threshold": null,
+    "train_end": "2022-01-01 00:00:00",
+    "val_start": "2022-01-01 00:00:00",
+    "val_end": "2023-01-01 00:00:00",
+    "test_start": "2023-01-01 00:00:00",
+    "test_end": "2024-01-01 00:00:00"
+  },
+  {
+    "experiment": "reversal",
+    "fold": "wf_2024",
+    "threshold": null,
+    "train_end": "2023-01-01 00:00:00",
+    "val_start": "2023-01-01 00:00:00",
+    "val_end": "2024-01-01 00:00:00",
+    "test_start": "2024-01-01 00:00:00",
+    "test_end": "2025-01-01 00:00:00"
+  },
+  {
+    "experiment": "reversal",
+    "fold": "wf_2025",
+    "threshold": null,
+    "train_end": "2024-01-01 00:00:00",
+    "val_start": "2024-01-01 00:00:00",
+    "val_end": "2025-01-01 00:00:00",
+    "test_start": "2025-01-01 00:00:00",
+    "test_end": "2025-09-01 00:00:00"
+  },
+  {
+    "experiment": "reversal",
+    "fold": "oot",
+    "threshold": null,
+    "train_end": "2024-09-01 00:00:00",
+    "val_start": "2024-09-01 00:00:00",
+    "val_end": "2025-09-01 00:00:00",
+    "test_start": "2025-09-01 00:00:00",
+    "test_end": "2026-09-03 00:00:00"
+  },
+  {
+    "experiment": "seasonality",
+    "fold": "wf_2022",
+    "threshold": null,
+    "train_end": "2021-01-01 00:00:00",
+    "val_start": "2021-01-01 00:00:00",
+    "val_end": "2022-01-01 00:00:00",
+    "test_start": "2022-01-01 00:00:00",
+    "test_end": "2023-01-01 00:00:00"
+  },
+  {
+    "experiment": "seasonality",
+    "fold": "wf_2023",
+    "threshold": null,
+    "train_end": "2022-01-01 00:00:00",
+    "val_start": "2022-01-01 00:00:00",
+    "val_end": "2023-01-01 00:00:00",
+    "test_start": "2023-01-01 00:00:00",
+    "test_end": "2024-01-01 00:00:00"
+  },
+  {
+    "experiment": "seasonality",
+    "fold": "wf_2024",
+    "threshold": null,
+    "train_end": "2023-01-01 00:00:00",
+    "val_start": "2023-01-01 00:00:00",
+    "val_end": "2024-01-01 00:00:00",
+    "test_start": "2024-01-01 00:00:00",
+    "test_end": "2025-01-01 00:00:00"
+  },
+  {
+    "experiment": "seasonality",
+    "fold": "wf_2025",
+    "threshold": null,
+    "train_end": "2024-01-01 00:00:00",
+    "val_start": "2024-01-01 00:00:00",
+    "val_end": "2025-01-01 00:00:00",
+    "test_start": "2025-01-01 00:00:00",
+    "test_end": "2025-09-01 00:00:00"
+  },
+  {
+    "experiment": "seasonality",
+    "fold": "oot",
+    "threshold": null,
+    "train_end": "2024-09-01 00:00:00",
+    "val_start": "2024-09-01 00:00:00",
+    "val_end": "2025-09-01 00:00:00",
+    "test_start": "2025-09-01 00:00:00",
+    "test_end": "2026-09-03 00:00:00"
+  },
+  {
+    "experiment": "logreg_a",
+    "fold": "wf_2022",
+    "threshold": 0.6,
+    "train_end": "2021-01-01 00:00:00",
+    "val_start": "2021-01-01 00:00:00",
+    "val_end": "2022-01-01 00:00:00",
+    "test_start": "2022-01-01 00:00:00",
+    "test_end": "2023-01-01 00:00:00"
+  },
+  {
+    "experiment": "logreg_a",
+    "fold": "wf_2023",
+    "threshold": 0.30985915492957744,
+    "train_end": "2022-01-01 00:00:00",
+    "val_start": "2022-01-01 00:00:00",
+    "val_end": "2023-01-01 00:00:00",
+    "test_start": "2023-01-01 00:00:00",
+    "test_end": "2024-01-01 00:00:00"
+  },
+  {
+    "experiment": "logreg_a",
+    "fold": "wf_2024",
+    "threshold": 0.4142335766423358,
+    "train_end": "2023-01-01 00:00:00",
+    "val_start": "2023-01-01 00:00:00",
+    "val_end": "2024-01-01 00:00:00",
+    "test_start": "2024-01-01 00:00:00",
+    "test_end": "2025-01-01 00:00:00"
+  },
+  {
+    "experiment": "logreg_a",
+    "fold": "wf_2025",
+    "threshold": 0.35236938031591736,
+    "train_end": "2024-01-01 00:00:00",
+    "val_start": "2024-01-01 00:00:00",
+    "val_end": "2025-01-01 00:00:00",
+    "test_start": "2025-01-01 00:00:00",
+    "test_end": "2025-09-01 00:00:00"
+  },
+  {
+    "experiment": "logreg_a",
+    "fold": "oot",
+    "threshold": 0.3654970760233918,
+    "train_end": "2024-09-01 00:00:00",
+    "val_start": "2024-09-01 00:00:00",
+    "val_end": "2025-09-01 00:00:00",
+    "test_start": "2025-09-01 00:00:00",
+    "test_end": "2026-09-03 00:00:00"
+  },
+  {
+    "experiment": "logreg_ab",
+    "fold": "wf_2022",
+    "threshold": 0.23993633692458527,
+    "train_end": "2021-01-01 00:00:00",
+    "val_start": "2021-01-01 00:00:00",
+    "val_end": "2022-01-01 00:00:00",
+    "test_start": "2022-01-01 00:00:00",
+    "test_end": "2023-01-01 00:00:00"
+  },
+  {
+    "experiment": "logreg_ab",
+    "fold": "wf_2023",
+    "threshold": 0.6,
+    "train_end": "2022-01-01 00:00:00",
+    "val_start": "2022-01-01 00:00:00",
+    "val_end": "2023-01-01 00:00:00",
+    "test_start": "2023-01-01 00:00:00",
+    "test_end": "2024-01-01 00:00:00"
+  },
+  {
+    "experiment": "logreg_ab",
+    "fold": "wf_2024",
+    "threshold": 0.5223880597014926,
+    "train_end": "2023-01-01 00:00:00",
+    "val_start": "2023-01-01 00:00:00",
+    "val_end": "2024-01-01 00:00:00",
+    "test_start": "2024-01-01 00:00:00",
+    "test_end": "2025-01-01 00:00:00"
+  },
+  {
+    "experiment": "logreg_ab",
+    "fold": "wf_2025",
+    "threshold": 0.39543726235741444,
+    "train_end": "2024-01-01 00:00:00",
+    "val_start": "2024-01-01 00:00:00",
+    "val_end": "2025-01-01 00:00:00",
+    "test_start": "2025-01-01 00:00:00",
+    "test_end": "2025-09-01 00:00:00"
+  },
+  {
+    "experiment": "logreg_ab",
+    "fold": "oot",
+    "threshold": 0.6,
+    "train_end": "2024-09-01 00:00:00",
+    "val_start": "2024-09-01 00:00:00",
+    "val_end": "2025-09-01 00:00:00",
+    "test_start": "2025-09-01 00:00:00",
+    "test_end": "2026-09-03 00:00:00"
+  },
+  {
+    "experiment": "logreg_abc",
+    "fold": "wf_2022",
+    "threshold": 0.6,
+    "train_end": "2021-01-01 00:00:00",
+    "val_start": "2021-01-01 00:00:00",
+    "val_end": "2022-01-01 00:00:00",
+    "test_start": "2022-01-01 00:00:00",
+    "test_end": "2023-01-01 00:00:00"
+  },
+  {
+    "experiment": "logreg_abc",
+    "fold": "wf_2023",
+    "threshold": 0.6,
+    "train_end": "2022-01-01 00:00:00",
+    "val_start": "2022-01-01 00:00:00",
+    "val_end": "2023-01-01 00:00:00",
+    "test_start": "2023-01-01 00:00:00",
+    "test_end": "2024-01-01 00:00:00"
+  },
+  {
+    "experiment": "logreg_abc",
+    "fold": "wf_2024",
+    "threshold": 0.6,
+    "train_end": "2023-01-01 00:00:00",
+    "val_start": "2023-01-01 00:00:00",
+    "val_end": "2024-01-01 00:00:00",
+    "test_start": "2024-01-01 00:00:00",
+    "test_end": "2025-01-01 00:00:00"
+  },
+  {
+    "experiment": "logreg_abc",
+    "fold": "wf_2025",
+    "threshold": 0.39215686274509803,
+    "train_end": "2024-01-01 00:00:00",
+    "val_start": "2024-01-01 00:00:00",
+    "val_end": "2025-01-01 00:00:00",
+    "test_start": "2025-01-01 00:00:00",
+    "test_end": "2025-09-01 00:00:00"
+  },
+  {
+    "experiment": "logreg_abc",
+    "fold": "oot",
+    "threshold": 0.3763513513513513,
+    "train_end": "2024-09-01 00:00:00",
+    "val_start": "2024-09-01 00:00:00",
+    "val_end": "2025-09-01 00:00:00",
+    "test_start": "2025-09-01 00:00:00",
+    "test_end": "2026-09-03 00:00:00"
+  },
+  {
+    "experiment": "logreg_abcd",
+    "fold": "wf_2022",
+    "threshold": 0.25524475524475526,
+    "train_end": "2021-01-01 00:00:00",
+    "val_start": "2021-01-01 00:00:00",
+    "val_end": "2022-01-01 00:00:00",
+    "test_start": "2022-01-01 00:00:00",
+    "test_end": "2023-01-01 00:00:00"
+  },
+  {
+    "experiment": "logreg_abcd",
+    "fold": "wf_2023",
+    "threshold": 0.8,
+    "train_end": "2022-01-01 00:00:00",
+    "val_start": "2022-01-01 00:00:00",
+    "val_end": "2023-01-01 00:00:00",
+    "test_start": "2023-01-01 00:00:00",
+    "test_end": "2024-01-01 00:00:00"
+  },
+  {
+    "experiment": "logreg_abcd",
+    "fold": "wf_2024",
+    "threshold": 0.514792899408284,
+    "train_end": "2023-01-01 00:00:00",
+    "val_start": "2023-01-01 00:00:00",
+    "val_end": "2024-01-01 00:00:00",
+    "test_start": "2024-01-01 00:00:00",
+    "test_end": "2025-01-01 00:00:00"
+  },
+  {
+    "experiment": "logreg_abcd",
+    "fold": "wf_2025",
+    "threshold": 0.3476190476190476,
+    "train_end": "2024-01-01 00:00:00",
+    "val_start": "2024-01-01 00:00:00",
+    "val_end": "2025-01-01 00:00:00",
+    "test_start": "2025-01-01 00:00:00",
+    "test_end": "2025-09-01 00:00:00"
+  },
+  {
+    "experiment": "logreg_abcd",
+    "fold": "oot",
+    "threshold": 0.6,
+    "train_end": "2024-09-01 00:00:00",
+    "val_start": "2024-09-01 00:00:00",
+    "val_end": "2025-09-01 00:00:00",
+    "test_start": "2025-09-01 00:00:00",
+    "test_end": "2026-09-03 00:00:00"
+  },
+  {
+    "experiment": "catboost_a",
+    "fold": "wf_2022",
+    "threshold": 0.6,
+    "train_end": "2021-01-01 00:00:00",
+    "val_start": "2021-01-01 00:00:00",
+    "val_end": "2022-01-01 00:00:00",
+    "test_start": "2022-01-01 00:00:00",
+    "test_end": "2023-01-01 00:00:00"
+  },
+  {
+    "experiment": "catboost_a",
+    "fold": "wf_2023",
+    "threshold": 0.32608695652173914,
+    "train_end": "2022-01-01 00:00:00",
+    "val_start": "2022-01-01 00:00:00",
+    "val_end": "2023-01-01 00:00:00",
+    "test_start": "2023-01-01 00:00:00",
+    "test_end": "2024-01-01 00:00:00"
+  },
+  {
+    "experiment": "catboost_a",
+    "fold": "wf_2024",
+    "threshold": 0.40324032403240323,
+    "train_end": "2023-01-01 00:00:00",
+    "val_start": "2023-01-01 00:00:00",
+    "val_end": "2024-01-01 00:00:00",
+    "test_start": "2024-01-01 00:00:00",
+    "test_end": "2025-01-01 00:00:00"
+  },
+  {
+    "experiment": "catboost_a",
+    "fold": "wf_2025",
+    "threshold": 0.34755463059313213,
+    "train_end": "2024-01-01 00:00:00",
+    "val_start": "2024-01-01 00:00:00",
+    "val_end": "2025-01-01 00:00:00",
+    "test_start": "2025-01-01 00:00:00",
+    "test_end": "2025-09-01 00:00:00"
+  },
+  {
+    "experiment": "catboost_a",
+    "fold": "oot",
+    "threshold": 0.8,
+    "train_end": "2024-09-01 00:00:00",
+    "val_start": "2024-09-01 00:00:00",
+    "val_end": "2025-09-01 00:00:00",
+    "test_start": "2025-09-01 00:00:00",
+    "test_end": "2026-09-03 00:00:00"
+  },
+  {
+    "experiment": "catboost_ab",
+    "fold": "wf_2022",
+    "threshold": 0.2527881040892193,
+    "train_end": "2021-01-01 00:00:00",
+    "val_start": "2021-01-01 00:00:00",
+    "val_end": "2022-01-01 00:00:00",
+    "test_start": "2022-01-01 00:00:00",
+    "test_end": "2023-01-01 00:00:00"
+  },
+  {
+    "experiment": "catboost_ab",
+    "fold": "wf_2023",
+    "threshold": 0.2924865831842576,
+    "train_end": "2022-01-01 00:00:00",
+    "val_start": "2022-01-01 00:00:00",
+    "val_end": "2023-01-01 00:00:00",
+    "test_start": "2023-01-01 00:00:00",
+    "test_end": "2024-01-01 00:00:00"
+  },
+  {
+    "experiment": "catboost_ab",
+    "fold": "wf_2024",
+    "threshold": 0.40736728060671723,
+    "train_end": "2023-01-01 00:00:00",
+    "val_start": "2023-01-01 00:00:00",
+    "val_end": "2024-01-01 00:00:00",
+    "test_start": "2024-01-01 00:00:00",
+    "test_end": "2025-01-01 00:00:00"
+  },
+  {
+    "experiment": "catboost_ab",
+    "fold": "wf_2025",
+    "threshold": 0.8,
+    "train_end": "2024-01-01 00:00:00",
+    "val_start": "2024-01-01 00:00:00",
+    "val_end": "2025-01-01 00:00:00",
+    "test_start": "2025-01-01 00:00:00",
+    "test_end": "2025-09-01 00:00:00"
+  },
+  {
+    "experiment": "catboost_ab",
+    "fold": "oot",
+    "threshold": 0.3103448275862069,
+    "train_end": "2024-09-01 00:00:00",
+    "val_start": "2024-09-01 00:00:00",
+    "val_end": "2025-09-01 00:00:00",
+    "test_start": "2025-09-01 00:00:00",
+    "test_end": "2026-09-03 00:00:00"
+  },
+  {
+    "experiment": "catboost_abc",
+    "fold": "wf_2022",
+    "threshold": 0.24747474747474751,
+    "train_end": "2021-01-01 00:00:00",
+    "val_start": "2021-01-01 00:00:00",
+    "val_end": "2022-01-01 00:00:00",
+    "test_start": "2022-01-01 00:00:00",
+    "test_end": "2023-01-01 00:00:00"
+  },
+  {
+    "experiment": "catboost_abc",
+    "fold": "wf_2023",
+    "threshold": 0.6,
+    "train_end": "2022-01-01 00:00:00",
+    "val_start": "2022-01-01 00:00:00",
+    "val_end": "2023-01-01 00:00:00",
+    "test_start": "2023-01-01 00:00:00",
+    "test_end": "2024-01-01 00:00:00"
+  },
+  {
+    "experiment": "catboost_abc",
+    "fold": "wf_2024",
+    "threshold": 0.6,
+    "train_end": "2023-01-01 00:00:00",
+    "val_start": "2023-01-01 00:00:00",
+    "val_end": "2024-01-01 00:00:00",
+    "test_start": "2024-01-01 00:00:00",
+    "test_end": "2025-01-01 00:00:00"
+  },
+  {
+    "experiment": "catboost_abc",
+    "fold": "wf_2025",
+    "threshold": 0.4017857142857143,
+    "train_end": "2024-01-01 00:00:00",
+    "val_start": "2024-01-01 00:00:00",
+    "val_end": "2025-01-01 00:00:00",
+    "test_start": "2025-01-01 00:00:00",
+    "test_end": "2025-09-01 00:00:00"
+  },
+  {
+    "experiment": "catboost_abc",
+    "fold": "oot",
+    "threshold": 0.3498542274052478,
+    "train_end": "2024-09-01 00:00:00",
+    "val_start": "2024-09-01 00:00:00",
+    "val_end": "2025-09-01 00:00:00",
+    "test_start": "2025-09-01 00:00:00",
+    "test_end": "2026-09-03 00:00:00"
+  },
+  {
+    "experiment": "catboost_abcd",
+    "fold": "wf_2022",
+    "threshold": 0.328125,
+    "train_end": "2021-01-01 00:00:00",
+    "val_start": "2021-01-01 00:00:00",
+    "val_end": "2022-01-01 00:00:00",
+    "test_start": "2022-01-01 00:00:00",
+    "test_end": "2023-01-01 00:00:00"
+  },
+  {
+    "experiment": "catboost_abcd",
+    "fold": "wf_2023",
+    "threshold": 0.3121212121212121,
+    "train_end": "2022-01-01 00:00:00",
+    "val_start": "2022-01-01 00:00:00",
+    "val_end": "2023-01-01 00:00:00",
+    "test_start": "2023-01-01 00:00:00",
+    "test_end": "2024-01-01 00:00:00"
+  },
+  {
+    "experiment": "catboost_abcd",
+    "fold": "wf_2024",
+    "threshold": 0.5108695652173914,
+    "train_end": "2023-01-01 00:00:00",
+    "val_start": "2023-01-01 00:00:00",
+    "val_end": "2024-01-01 00:00:00",
+    "test_start": "2024-01-01 00:00:00",
+    "test_end": "2025-01-01 00:00:00"
+  },
+  {
+    "experiment": "catboost_abcd",
+    "fold": "wf_2025",
+    "threshold": 0.36787564766839376,
+    "train_end": "2024-01-01 00:00:00",
+    "val_start": "2024-01-01 00:00:00",
+    "val_end": "2025-01-01 00:00:00",
+    "test_start": "2025-01-01 00:00:00",
+    "test_end": "2025-09-01 00:00:00"
+  },
+  {
+    "experiment": "catboost_abcd",
+    "fold": "oot",
+    "threshold": 0.40625,
+    "train_end": "2024-09-01 00:00:00",
+    "val_start": "2024-09-01 00:00:00",
+    "val_end": "2025-09-01 00:00:00",
+    "test_start": "2025-09-01 00:00:00",
+    "test_end": "2026-09-03 00:00:00"
+  }
+]
