@@ -39,6 +39,24 @@ def validate_external_series(frame: pd.DataFrame) -> pd.DataFrame:
     return result.sort_values(["series_id", "available_at", "event_date"]).reset_index(drop=True)
 
 
+def from_public_context(context: pd.DataFrame, *, source: str = "moex") -> pd.DataFrame:
+    """Map the public-context snapshot onto the point-in-time external contract."""
+    required = {"effective_date", "available_at", "name", "value"}
+    missing = sorted(required - set(context.columns))
+    if missing:
+        raise ValueError(f"Public context missing columns: {', '.join(missing)}")
+    frame = pd.DataFrame(
+        {
+            "event_date": context["effective_date"],
+            "available_at": context["available_at"],
+            "source": source,
+            "series_id": context["name"].astype(str),
+            "value": context["value"],
+        }
+    )
+    return validate_external_series(frame)
+
+
 def load_external_series(path: Path) -> pd.DataFrame:
     if not path.exists():
         raise FileNotFoundError(f"External data snapshot not found at {path}")

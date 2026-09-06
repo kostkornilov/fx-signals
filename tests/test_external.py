@@ -52,3 +52,26 @@ def test_external_features_obey_available_at() -> None:
     assert "ext_usd_local_staleness_days" in columns
     assert result.loc[2, "ext_usd_local_staleness_days"] == pytest.approx(0.0)
     assert pd.isna(result.loc[1, "ext_usd_local_staleness_days"])
+
+
+def test_public_context_maps_to_external_contract() -> None:
+    context = pd.DataFrame(
+        {
+            "effective_date": ["2025-01-02"],
+            "available_at": ["2025-01-03"],
+            "name": ["moex_imoex"],
+            "value": [3000.0],
+        }
+    )
+    from fx_signal.external import from_public_context
+
+    series = from_public_context(context)
+    assert list(series.columns[:5]) == [
+        "event_date",
+        "available_at",
+        "source",
+        "series_id",
+        "value",
+    ]
+    assert series.loc[0, "series_id"] == "moex_imoex"
+    assert series.loc[0, "source"] == "moex"

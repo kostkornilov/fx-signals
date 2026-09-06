@@ -8,7 +8,7 @@ import pandas as pd
 import yaml
 
 from fx_signal.data import load_yaml
-from fx_signal.evaluation import evaluate_method, forward_bps, signals_per_week
+from fx_signal.metrics import evaluate_method, forward_bps, signals_per_week
 from fx_signal.public_context import causal_context_join, load_public_context
 from fx_signal.rule_catalog import RuleSpec, build_rule_catalog
 from fx_signal.splits import make_walk_forward_folds, mask_test, mask_val

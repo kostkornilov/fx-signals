@@ -6,9 +6,9 @@ import numpy as np
 import pandas as pd
 
 from fx_signal.data import load_rates, load_yaml
-from fx_signal.evaluation import forward_bps
 from fx_signal.external import load_external_series
 from fx_signal.features import columns_for_groups
+from fx_signal.metrics import forward_bps
 from fx_signal.splits import make_walk_forward_folds
 from fx_signal.targets import target_column
 from fx_signal.train import _split_frame, build_frame, run_method
@@ -259,7 +259,6 @@ def _write_report(
             lift=("lift", "mean"),
             bps=("bps_forward", "mean"),
             signals_per_week=("signals_per_week", "mean"),
-            brier=("brier_score", "mean"),
         )
         .round(3)
     )
@@ -292,4 +291,5 @@ def _write_report(
     else:
         text += "Quality gate прошли: " + ", ".join(eligible["experiment"].astype(str)) + ".\n"
     text += "\n\nПолные результаты: `ablation_metrics.csv`, `paired_comparisons.csv`.\n"
+    text += "Сводный график: [figures/external_report.png](figures/external_report.png).\n"
     path.write_text(text, encoding="utf-8")
