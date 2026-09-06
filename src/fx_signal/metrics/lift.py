@@ -123,6 +123,7 @@ def evaluate_method(
     rng: np.random.Generator | None = None,
     weekly_limit: int = 2,
     cooldown_days: int = 3,
+    baseline_draws: int = 200,
 ) -> pd.DataFrame:
     required = {"currency", "effective_date", "rub_per_unit", target_col, signal_col}
     missing = required.difference(frame.columns)
@@ -166,8 +167,10 @@ def evaluate_method(
             horizon=horizon,
             target_col=target_col,
             signal_col=signal_col,
+            baseline_draws=baseline_draws,
             rng=rng,
         )
+        lar_details = {f"lar_{key}": value for key, value in lar.items()}
         rows.append(
             {
                 "horizon": horizon,
@@ -192,6 +195,7 @@ def evaluate_method(
                 "signals_per_week": frequency["pushes_per_week"],
                 "cluster_share": cluster_share(signal),
                 "lift_at_risk": lar["lift_at_risk"],
+                **lar_details,
             }
         )
     return pd.DataFrame(rows)
